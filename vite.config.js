@@ -22,10 +22,10 @@ export default defineConfig({
     sourcemap: true,
     rollupOptions: {
       output: {
-        /* d3 is used by exactly one component (the discovery map). Splitting it
-           out keeps ~90 KB off the landing page's critical path. */
+        /* Leaflet is used by exactly one view (the discovery map). Splitting
+           it out keeps it off the landing page's critical path. */
         manualChunks: {
-          d3: ["d3"],
+          leaflet: ["leaflet"],
           react: ["react", "react-dom"],
         },
       },

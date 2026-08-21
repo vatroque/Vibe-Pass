@@ -1,3 +1,4 @@
+import "leaflet/dist/leaflet.css";
 import "./index.css";
 /* ================================================================
    VIBE PASS — unified super-app shell
@@ -15,6 +16,7 @@ import React, {
   useMemo,
   useRef,
   useCallback,
+  useLayoutEffect,
   forwardRef,
   useImperativeHandle,
   Fragment,
@@ -105,7 +107,7 @@ import {
   Bookmark,
   BarChart3,
 } from "lucide-react";
-import * as d3 from "d3";
+import L from "leaflet";
 import { createRoot } from "react-dom/client";
 
 /* ============================================================
@@ -213,53 +215,6 @@ const CONSUMER_NAV_ITEMS = [
 ];
 
 /* Embedded vector basemap - CSP-safe fallback geography */
-const VECTOR_LAND = [
-  /* Mainland */
-  [[24.25, 54.34], [24.39, 54.355], [24.414, 54.392], [24.418, 54.428], [24.45, 54.436], [24.472, 54.44],
-   [24.497, 54.452], [24.515, 54.47], [24.505, 54.51], [24.472, 54.545], [24.443, 54.562], [24.432, 54.612],
-   [24.472, 54.663], [24.523, 54.703], [24.52, 54.9], [24.22, 54.9], [24.22, 54.34]],
-  /* Abu Dhabi island */
-  [[24.485, 54.325], [24.497, 54.352], [24.495, 54.376], [24.478, 54.398], [24.455, 54.408], [24.432, 54.4],
-   [24.418, 54.378], [24.428, 54.348], [24.452, 54.328]],
-  /* Al Maryah Island */
-  [[24.505, 54.386], [24.503, 54.395], [24.496, 54.396], [24.492, 54.389], [24.498, 54.382]],
-  /* Al Reem Island */
-  [[24.509, 54.399], [24.507, 54.413], [24.495, 54.419], [24.484, 54.412], [24.487, 54.401], [24.498, 54.395]],
-  /* Saadiyat */
-  [[24.562, 54.398], [24.568, 54.432], [24.55, 54.462], [24.53, 54.455], [24.522, 54.424], [24.528, 54.399], [24.545, 54.386]],
-  /* Yas Island */
-  [[24.495, 54.588], [24.492, 54.616], [24.47, 54.626], [24.448, 54.614], [24.443, 54.594], [24.459, 54.579], [24.481, 54.577]],
-  /* Dubai coast (simplified, for cross-emirate fly-overs) */
-  [[25.32, 55.12], [25.3, 55.42], [25.05, 55.45], [25.02, 55.1]],
-];
-
-const VECTOR_ROADS = [
-  [[24.483, 54.329], [24.492, 54.348], [24.496, 54.365], [24.49, 54.381]],
-  [[24.468, 54.402], [24.452, 54.43], [24.44, 54.47], [24.432, 54.52], [24.425, 54.568], [24.42, 54.61]],
-  [[24.492, 54.386], [24.512, 54.407], [24.53, 54.43], [24.536, 54.455], [24.516, 54.5], [24.492, 54.542], [24.472, 54.582], [24.468, 54.598]],
-];
-
-const VECTOR_LABELS = [
-  { text: "ABU DHABI", at: [24.455, 54.365] },
-  { text: "SAADIYAT", at: [24.548, 54.43] },
-  { text: "YAS ISLAND", at: [24.468, 54.601] },
-  { text: "KHALIFA CITY", at: [24.402, 54.575] },
-  { text: "ARABIAN GULF", at: [24.548, 54.315] },
-  { text: "DUBAI", at: [25.17, 55.27] },
-];
-
-/* Batch 3 - the map is now a self-contained SVG (d3 projection + zoom),
-not raw Leaflet. Two things broke Leaflet in this artifact sandbox: (1)
-React artifacts only ship a fixed library set (lucide-react, d3, recharts,
-etc.) with no CDN script/style loading the way HTML artifacts get, so the
-dynamic <script>/<link> injection below was silently blocked; (2) even if
-it had loaded, the raster tiles themselves were a second external fetch
-subject to the same restriction. Rebuilding on d3 (an approved library)
-removes every external dependency: land, roads, districts and labels are
-drawn as plain SVG, projected with d3.geoMercator, panned/zoomed with
-d3.zoom - nothing to fetch, nothing to block. VECTOR_LAND/VECTOR_ROADS/
-VECTOR_LABELS/DISTRICT_ZONES above are unchanged; only how they're drawn
-changes, in the new DiscoveryMap below. */
 
 const DISTRICT_ZONES = [
   {
@@ -288,9 +243,10 @@ const DISTRICT_ZONES = [
   },
 ];
 
-/* Great-circle distance in meters. Replaces the old L.map.distance() call
-now that panning/zooming goes through a d3 transform, not a Leaflet map
-instance. */
+/* Great-circle distance in meters. Kept as a local helper rather than
+calling map.distance(): MapView compares a stored centre against the live one
+to decide whether to offer "Search this area", and that comparison should not
+depend on the map instance still being mounted. */
 function haversineMeters(lat1, lng1, lat2, lng2) {
   const R = 6371000;
   const toRad = (d) => (d * Math.PI) / 180;
@@ -1371,11 +1327,46 @@ function ContactlessIcon({ size = 28, color = "#FFFFFF" }) {
   );
 }
 
-/* Discovery map - self-contained SVG map (no Leaflet, no network fetches).
-d3.geoMercator projects lat/lng into a fixed local viewBox; d3.zoom drives
-pan/pinch/scroll. A small imperative handle lets MapView still drive
-"fly to" / "search this area" / bounds-lookup from outside, the way it
-used to call methods directly on a Leaflet map instance. */
+/* Discovery map — a real slippy map: Leaflet panning/zooming over CARTO's
+dark OpenStreetMap raster tiles, replacing the hand-drawn SVG coastline this
+component used to render.
+
+That SVG existed for one reason: the original prototype ran inside an artifact
+sandbox that blocked both external scripts and tile requests, so the map had to
+be faked from ~40 hardcoded polygon vertices. This is a bundled Vite app now —
+Leaflet is an ordinary dependency and tiles are an ordinary network request —
+so the approximation is no longer necessary and real Abu Dhabi geography is
+available instead.
+
+Leaflet owns tiles and gestures. Markers deliberately stay React-rendered in an
+absolutely positioned overlay rather than becoming L.marker/divIcon: that keeps
+the existing pin markup, styling and click handlers exactly as they were, and
+avoids hand-writing HTML strings. The overlay re-projects through
+latLngToContainerPoint on every move/zoom.
+
+The imperative handle keeps the shape MapView already calls. `k` stays a linear
+scale factor because MapView compares it as a ratio (now.k / last.k > 1.25), so
+it is exposed as 2^(zoom - BASE_ZOOM): one zoom level doubles k, which keeps
+that existing threshold behaving as it did under d3.zoom. */
+
+const TILE_URL = "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png";
+const TILE_ATTRIBUTION =
+  '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, &copy; <a href="https://carto.com/attributions">CARTO</a>';
+
+/* Zoom 12 frames the Abu Dhabi metro area. It is also the anchor for the
+k <-> zoom conversion below, so changing it rescales every k the handle
+reports — keep it and INITIAL_CENTER in step. */
+const BASE_ZOOM = 12;
+const MIN_ZOOM = 9;
+const MAX_ZOOM = 18;
+
+const kToZoom = (k) => BASE_ZOOM + Math.log2(Math.max(k, 0.01));
+const zoomToK = (zoom) => Math.pow(2, zoom - BASE_ZOOM);
+
+/* Pins beyond this many pixels outside the viewport are not rendered. Matches
+the cull the SVG implementation used. */
+const MARKER_CULL_PX = 60;
+
 const DiscoveryMap = forwardRef(function DiscoveryMap(
   {
     visibleEvents,
@@ -1389,222 +1380,183 @@ const DiscoveryMap = forwardRef(function DiscoveryMap(
   ref
 ) {
   const containerRef = useRef(null);
-  const svgRef = useRef(null);
-  const zoomBehaviorRef = useRef(null);
+  const mapRef = useRef(null);
   const onViewChangeRef = useRef(onViewChange);
-  const [dims, setDims] = useState({ w: 360, h: 340 });
-  const [transform, setTransform] = useState(() => d3.zoomIdentity);
+  /* `map` drives rendering (it must trigger a re-render once Leaflet is up);
+  `mapRef` gives the imperative handle a stable reference that does not churn
+  its useCallback dependencies. Both point at the same instance. */
+  const [map, setMap] = useState(null);
+  /* Bumped on every move/zoom so the marker overlay re-projects. */
+  const [viewTick, setViewTick] = useState(0);
 
   useEffect(() => {
     onViewChangeRef.current = onViewChange;
   }, [onViewChange]);
 
+  /* A layout effect, not a passive one: MapView calls runSearch() from its own
+  mount effect, and React flushes child layout effects before parent passive
+  effects, so the handle is live by the time that first search runs. */
+  useLayoutEffect(() => {
+    if (mapRef.current || !containerRef.current) return undefined;
+
+    const instance = L.map(containerRef.current, {
+      center: INITIAL_CENTER,
+      zoom: BASE_ZOOM,
+      minZoom: MIN_ZOOM,
+      maxZoom: MAX_ZOOM,
+      zoomControl: false,
+      attributionControl: true,
+      /* The chrome overlaying this map (permit badge, result count, "Search
+      this area") is our own, so Leaflet's inertia would fight the pins. */
+      zoomSnap: 0.25,
+    });
+
+    L.tileLayer(TILE_URL, {
+      attribution: TILE_ATTRIBUTION,
+      maxZoom: MAX_ZOOM,
+      detectRetina: true,
+    }).addTo(instance);
+
+    /* DISTRICT_ZONES carries real lat/lng rings, so under a real projection
+    they can be drawn as actual polygons rather than the decorative blobs the
+    SVG version painted. */
+    DISTRICT_ZONES.forEach((zone) => {
+      L.polygon(zone.ring, {
+        color: zone.color,
+        weight: 1.25,
+        opacity: 0.85,
+        fillColor: zone.color,
+        fillOpacity: 0.08,
+        interactive: false,
+      }).addTo(instance);
+    });
+
+    const handleView = () => {
+      setViewTick((tick) => tick + 1);
+      if (onViewChangeRef.current) onViewChangeRef.current();
+    };
+    instance.on("move zoom resize", handleView);
+
+    mapRef.current = instance;
+    setMap(instance);
+
+    return () => {
+      instance.off("move zoom resize", handleView);
+      instance.remove();
+      mapRef.current = null;
+      setMap(null);
+    };
+  }, []);
+
+  /* Leaflet caches the container size, so it has to be told when the flex
+  parent resizes — otherwise tiles clip after an orientation change. */
   useEffect(() => {
-    if (!containerRef.current || typeof ResizeObserver === "undefined") {
+    if (!map || !containerRef.current || typeof ResizeObserver === "undefined") {
       return undefined;
     }
-    const observer = new ResizeObserver((entries) => {
-      const cr = entries[0] && entries[0].contentRect;
-      if (cr && cr.width > 4 && cr.height > 4) {
-        setDims({ w: cr.width, h: cr.height });
-      }
-    });
+    const observer = new ResizeObserver(() => map.invalidateSize());
     observer.observe(containerRef.current);
     return () => observer.disconnect();
+  }, [map]);
+
+  const flyToLatLng = useCallback((lat, lng, k, duration = 600) => {
+    const instance = mapRef.current;
+    if (!instance) return;
+    instance.flyTo([lat, lng], kToZoom(k), { duration: duration / 1000 });
   }, []);
 
-  /* Fitted once per container size to INITIAL_FIT_BOUNDS - the identity
-  transform (no pan/zoom applied yet) IS the home view. */
-  const projection = useMemo(() => {
-    const [[latMin, lngMin], [latMax, lngMax]] = INITIAL_FIT_BOUNDS;
-    const extent = {
-      type: "LineString",
-      coordinates: [
-        [lngMin, latMin],
-        [lngMax, latMax],
-      ],
-    };
-    const w = Math.max(dims.w, 60);
-    const h = Math.max(dims.h, 60);
-    return d3.geoMercator().fitExtent([[24, 24], [w - 24, h - 24]], extent);
-  }, [dims.w, dims.h]);
-
-  const proj = useCallback((lat, lng) => projection([lng, lat]), [projection]);
-
-  /* Bind d3.zoom to the svg once. "zoom" fires continuously for smooth
-  panning; "end" fires once per gesture, mirroring the old Leaflet
-  dragend/zoomend pair used for the "search this area" prompt. */
-  useEffect(() => {
-    if (!svgRef.current) return undefined;
-    const behavior = d3
-      .zoom()
-      .scaleExtent([0.6, 6])
-      .clickDistance(6)
-      .on("zoom", (event) => setTransform(event.transform))
-      .on("end", () => {
-        if (onViewChangeRef.current) onViewChangeRef.current();
-      });
-    zoomBehaviorRef.current = behavior;
-    const sel = d3.select(svgRef.current);
-    sel.call(behavior);
-    return () => {
-      sel.on(".zoom", null);
-    };
+  const flyToBounds = useCallback((ring, duration = 600) => {
+    const instance = mapRef.current;
+    if (!instance || !ring || ring.length === 0) return;
+    instance.flyToBounds(L.latLngBounds(ring), {
+      duration: duration / 1000,
+      padding: [24, 24],
+    });
   }, []);
-
-  const applyTransform = useCallback((next, duration) => {
-    if (!svgRef.current || !zoomBehaviorRef.current) return;
-    d3.select(svgRef.current)
-      .transition()
-      .duration(duration)
-      .call(zoomBehaviorRef.current.transform, next);
-  }, []);
-
-  const flyToLatLng = useCallback(
-    (lat, lng, targetK, duration = 700) => {
-      const k = Math.max(0.6, Math.min(6, targetK == null ? transform.k : targetK));
-      const [bx, by] = proj(lat, lng);
-      applyTransform(
-        d3.zoomIdentity.translate(dims.w / 2 - bx * k, dims.h / 2 - by * k).scale(k),
-        duration
-      );
-    },
-    [proj, dims, transform.k, applyTransform]
-  );
-
-  const flyToBounds = useCallback(
-    (ring, padding = 48, duration = 700) => {
-      const pts = ring.map(([lat, lng]) => proj(lat, lng));
-      const xs = pts.map((p) => p[0]);
-      const ys = pts.map((p) => p[1]);
-      const minX = Math.min(...xs);
-      const maxX = Math.max(...xs);
-      const minY = Math.min(...ys);
-      const maxY = Math.max(...ys);
-      const availW = Math.max(1, dims.w - padding * 2);
-      const availH = Math.max(1, dims.h - padding * 2);
-      const k = Math.max(
-        0.6,
-        Math.min(
-          6,
-          Math.min(availW / Math.max(1, maxX - minX), availH / Math.max(1, maxY - minY))
-        )
-      );
-      const cx = (minX + maxX) / 2;
-      const cy = (minY + maxY) / 2;
-      applyTransform(
-        d3.zoomIdentity.translate(dims.w / 2 - cx * k, dims.h / 2 - cy * k).scale(k),
-        duration
-      );
-    },
-    [proj, dims, applyTransform]
-  );
 
   const getCenterAndScale = useCallback(() => {
-    const [lng, lat] = projection.invert(transform.invert([dims.w / 2, dims.h / 2]));
-    return { lat, lng, k: transform.k };
-  }, [projection, transform, dims]);
+    const instance = mapRef.current;
+    if (!instance) {
+      return { lat: INITIAL_CENTER[0], lng: INITIAL_CENTER[1], k: 1 };
+    }
+    const center = instance.getCenter();
+    return { lat: center.lat, lng: center.lng, k: zoomToK(instance.getZoom()) };
+  }, []);
 
+  /* Falls back to the whole world rather than an empty box: if this is ever
+  called before Leaflet is up, showing every pin is a better failure than
+  showing none. */
   const getVisibleBounds = useCallback(() => {
-    const [lngA, latA] = projection.invert(transform.invert([0, 0]));
-    const [lngB, latB] = projection.invert(transform.invert([dims.w, dims.h]));
+    const instance = mapRef.current;
+    if (!instance) {
+      return { latMin: -90, latMax: 90, lngMin: -180, lngMax: 180 };
+    }
+    const bounds = instance.getBounds();
     return {
-      latMin: Math.min(latA, latB),
-      latMax: Math.max(latA, latB),
-      lngMin: Math.min(lngA, lngB),
-      lngMax: Math.max(lngA, lngB),
+      latMin: bounds.getSouth(),
+      latMax: bounds.getNorth(),
+      lngMin: bounds.getWest(),
+      lngMax: bounds.getEast(),
     };
-  }, [projection, transform, dims]);
+  }, []);
 
   useImperativeHandle(
     ref,
     () => ({
       flyToLatLng,
       flyToBounds,
-      resetHome: (duration = 0) => applyTransform(d3.zoomIdentity, duration),
+      resetHome: (duration = 0) => {
+        const instance = mapRef.current;
+        if (!instance) return;
+        instance.flyTo(INITIAL_CENTER, BASE_ZOOM, { duration: duration / 1000 });
+      },
       getCenterAndScale,
       getVisibleBounds,
     }),
-    [flyToLatLng, flyToBounds, applyTransform, getCenterAndScale, getVisibleBounds]
+    [flyToLatLng, flyToBounds, getCenterAndScale, getVisibleBounds]
   );
+
+  /* viewTick is a dependency rather than a value: it is what re-runs the
+  projection after Leaflet moves. */
+  const markers = useMemo(() => {
+    if (!map) return [];
+    return visibleEvents
+      .map((ev) => {
+        const point = map.latLngToContainerPoint([ev.lat, ev.lng]);
+        const size = map.getSize();
+        if (
+          point.x < -MARKER_CULL_PX ||
+          point.x > size.x + MARKER_CULL_PX ||
+          point.y < -MARKER_CULL_PX ||
+          point.y > size.y + MARKER_CULL_PX
+        ) {
+          return null;
+        }
+        return { ev, x: point.x, y: point.y };
+      })
+      .filter(Boolean);
+  }, [map, viewTick, visibleEvents]);
+
+  const zoomLabel = map ? map.getZoom().toFixed(2) : "--";
+  const zoomedIn = map ? map.getZoom() > BASE_ZOOM + 0.6 : false;
 
   return (
     <div
-      ref={containerRef}
-      className="relative w-full min-h-0 flex-1 select-none touch-none overflow-hidden rounded-3xl border"
-      style={{ borderColor: C.line, background: "#E5E3DF" }}
-      aria-label="Interactive map of UAE events and venues"
+      className="relative w-full min-h-0 flex-1 select-none overflow-hidden rounded-3xl border"
+      style={{ borderColor: C.line, background: C.bg }}
     >
-      <svg
-        ref={svgRef}
-        width={dims.w}
-        height={dims.h}
-        className="block"
-        style={{ cursor: "grab" }}
-      >
-        <g transform={`translate(${transform.x},${transform.y}) scale(${transform.k})`}>
-          {VECTOR_LAND.map((ring, i) => (
-            <polygon
-              key={`land-${i}`}
-              points={ring.map(([lat, lng]) => proj(lat, lng).join(",")).join(" ")}
-              fill="#F2EFE8"
-              stroke="#D9D4C9"
-              strokeWidth={1 / transform.k}
-            />
-          ))}
-          {VECTOR_ROADS.map((line, i) => (
-            <polyline
-              key={`road-${i}`}
-              points={line.map(([lat, lng]) => proj(lat, lng).join(",")).join(" ")}
-              fill="none"
-              stroke="#FFFFFF"
-              strokeWidth={3 / transform.k}
-              opacity={0.95}
-            />
-          ))}
-          {DISTRICT_ZONES.map((zone) => (
-            <polygon
-              key={zone.id}
-              points={zone.ring.map(([lat, lng]) => proj(lat, lng).join(",")).join(" ")}
-              fill={zone.color}
-              fillOpacity={0.08}
-              stroke={zone.color}
-              strokeWidth={1.5 / transform.k}
-              strokeDasharray={`${5 / transform.k},${5 / transform.k}`}
-              style={{ cursor: "pointer" }}
-              onClick={(e) => {
-                e.stopPropagation();
-                flyToBounds(zone.ring);
-              }}
-            />
-          ))}
-          {VECTOR_LABELS.map((label, i) => {
-            const [x, y] = proj(label.at[0], label.at[1]);
-            return (
-              <text
-                key={`label-${i}`}
-                x={x}
-                y={y}
-                textAnchor="middle"
-                fontSize={9 / transform.k}
-                fontWeight={700}
-                fill="#7C8894"
-                letterSpacing={2 / transform.k}
-                className="pointer-events-none select-none"
-              >
-                {label.text}
-              </text>
-            );
-          })}
-        </g>
-      </svg>
+      <div
+        ref={containerRef}
+        className="absolute inset-0"
+        aria-label="Interactive map of UAE events and venues"
+        role="application"
+      />
 
-      <div className="pointer-events-none absolute inset-0">
-        {visibleEvents.map((ev) => {
-          const [sx, sy] = transform.apply(proj(ev.lat, ev.lng));
-          if (sx < -60 || sx > dims.w + 60 || sy < -60 || sy > dims.h + 60) {
-            return null;
-          }
+      <div
+        className="pointer-events-none absolute inset-0"
+        style={{ zIndex: 500 }}
+      >
+        {markers.map(({ ev, x, y }) => {
           const isVenue = ev.type === "venue";
           const active = ev.id === selectedId;
           const glowStyle = isVenue
@@ -1630,13 +1582,14 @@ const DiscoveryMap = forwardRef(function DiscoveryMap(
             <button
               key={ev.id}
               onClick={() => {
-                flyToLatLng(ev.lat, ev.lng, Math.max(transform.k, 1.8), 600);
+                const currentK = map ? zoomToK(map.getZoom()) : 1;
+                flyToLatLng(ev.lat, ev.lng, Math.max(currentK, 1.8), 600);
                 onSelect(ev);
               }}
               className={`vp-price-pin pointer-events-auto${active ? " vp-price-pin-active" : ""}`}
               style={{
-                left: sx,
-                top: sy,
+                left: x,
+                top: y,
                 zIndex: active ? 30 : 10,
                 ...glowStyle,
                 ...activeStyle,
@@ -1682,13 +1635,13 @@ const DiscoveryMap = forwardRef(function DiscoveryMap(
         <div className="flex items-center gap-1.5">
           <span
             className="h-1.5 w-1.5 rounded-full animate-pulse"
-            style={{ background: transform.k > 1.5 ? C.amethyst : C.emerald }}
+            style={{ background: zoomedIn ? C.amethyst : C.emerald }}
           />
           <span
             className="font-mono uppercase"
             style={{ color: C.textMid, letterSpacing: 1, fontSize: 9 }}
           >
-            Vector Grid: {transform.k.toFixed(2)}x
+            Zoom Level: {zoomLabel}
           </span>
         </div>
       </div>
