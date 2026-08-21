@@ -22,18 +22,21 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Set up Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-      - name: Install dependencies
-        run: npm install
-      - name: Build
-        run: npm run build
+      # This app is a single self-contained static index.html (Tailwind Play
+      # CDN + an import map + Babel Standalone transpiling in-browser — no
+      # bundler involved), so deployment is a straight file copy. There is no
+      # npm build step because there is nothing for a bundler to do; see
+      # README.md "Known items" for the status of the separate Vite/React
+      # module split that this repo does not yet contain.
+      - name: Prepare site
+        run: |
+          mkdir -p _site
+          cp index.html _site/
+          cp favicon.svg _site/
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: './dist'
+          path: './_site'
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
