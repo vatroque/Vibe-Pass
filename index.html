@@ -11,17 +11,16 @@
 
 <!-- Import map: lets the browser resolve bare specifiers like "react"
      and "lucide-react" to real ES module builds, no bundler needed.
-     ?external=react on lucide-react/recharts ensures they resolve
-     against this same react entry rather than bundling their own
-     copy, which would otherwise break React's hook rules at runtime. -->
+     ?external=react on lucide-react ensures it resolves against this
+     same react entry rather than bundling its own copy, which would
+     otherwise break React's hook rules at runtime. -->
 <script type="importmap">
 {
   "imports": {
     "react": "https://esm.sh/react@18.3.1",
     "react-dom/client": "https://esm.sh/react-dom@18.3.1/client",
     "lucide-react": "https://esm.sh/lucide-react@0.383.0?external=react",
-    "d3": "https://esm.sh/d3@7.9.0",
-    "recharts": "https://esm.sh/recharts@2.12.7?external=react,react-dom"
+    "d3": "https://esm.sh/d3@7.9.0"
   }
 }
 </script>
@@ -156,7 +155,6 @@ import {
   BarChart3,
 } from "lucide-react";
 import * as d3 from "d3";
-import { Area, AreaChart, ResponsiveContainer, YAxis } from "recharts";
 import { createRoot } from "react-dom/client";
 
 /* ============================================================
@@ -8350,6 +8348,43 @@ function PostEventSheet({
   );
 }
 
+/* Trend sparkline - replaces a small recharts AreaChart with a plain
+   SVG path, since this is the only place in the whole app that used
+   recharts. Same visual: a gradient-filled area under a line, driven
+   by the same {v: number}[] data shape and color prop. Guards against
+   an empty trend array (renders nothing rather than crashing on
+   Math.min/max of an empty array) and a single-point array (which
+   would otherwise divide by zero when spacing points along the
+   x-axis). */
+function TrendSparkline({ data, color }) {
+  const values = (data || []).map((d) => d.v);
+  if (values.length === 0) return null;
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const range = max - min || 1;
+  const w = 300;
+  const h = 56;
+  const points = values.map((v, i) => {
+    const x = values.length > 1 ? (i / (values.length - 1)) * w : w / 2;
+    const y = h - ((v - min) / range) * h;
+    return `${x},${y}`;
+  });
+  const linePath = `M${points.join(" L")}`;
+  const areaPath = `${linePath} L${w},${h} L0,${h} Z`;
+  return (
+    <svg width="100%" height="100%" viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none">
+      <defs>
+        <linearGradient id="fillTrendSparkline" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={color} stopOpacity={0.45} />
+          <stop offset="100%" stopColor={color} stopOpacity={0} />
+        </linearGradient>
+      </defs>
+      <path d={areaPath} fill="url(#fillTrendSparkline)" stroke="none" />
+      <path d={linePath} fill="none" stroke={color} strokeWidth={2} />
+    </svg>
+  );
+}
+
 function PromoterHub({ postedEvents, onPostEvent, isActiveHub }) {
   const [currentView, setCurrentView] = useState('hub'); // 'hub' | 'console'
   const [selectedPropertyId, setSelectedPropertyId] = useState(null);
@@ -9183,18 +9218,7 @@ function PromoterHub({ postedEvents, onPostEvent, isActiveHub }) {
                   </span>
                 </div>
                 <div style={{ height: 56 }}>
-                  <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={activePropertyState.trend}>
-                      <defs>
-                        <linearGradient id="fillEmerald" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor={PC.emerald} stopOpacity={0.45} />
-                          <stop offset="100%" stopColor={PC.emerald} stopOpacity={0} />
-                        </linearGradient>
-                      </defs>
-                      <YAxis hide domain={['dataMin - 5', 'dataMax + 5']} />
-                      <Area type="monotone" dataKey="v" stroke={PC.emerald} strokeWidth={2} fill="url(#fillEmerald)" isAnimationActive={false} />
-                    </AreaChart>
-                  </ResponsiveContainer>
+                  <TrendSparkline data={activePropertyState.trend} color={PC.emerald} />
                 </div>
               </div>
 
