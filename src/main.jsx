@@ -5903,6 +5903,10 @@ function ConsumerHub({ postedEvents = [], isActiveHub }) {
       const start = tabTouchStartRef.current;
       tabTouchStartRef.current = null;
       if (!start) return;
+      /* The Map tab owns horizontal drag: panning Leaflet is the same
+      gesture as a tab swipe, so a pan would also cycle the tab out from
+      under the user. The bottom nav still switches tabs there. */
+      if (tab === "map") return;
       const t = e.changedTouches[0];
       const dx = t.clientX - start.x;
       const dy = t.clientY - start.y;
