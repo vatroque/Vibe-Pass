@@ -34,12 +34,36 @@ Requires Node 20 or later.
 
 ---
 
+## Project structure
+
+```
+Vibe-Pass/
+├── index.html                  Entry document — one <script type="module">
+├── src/
+│   ├── main.jsx                The entire application: components, state,
+│   │                           data and the createRoot mount
+│   └── index.css               Tailwind directives + base document styling
+├── public/
+│   └── favicon.svg             Copied to the build output verbatim
+├── vite.config.js              Build config — see "Before your first deploy"
+├── tailwind.config.js          Palette and typeface tokens
+└── .github/workflows/deploy.yml
+```
+
+`src/main.jsx` is a single large module (~13,000 lines) carrying every
+component, the state machine, and the mock datasets. Splitting it into a
+proper module tree is the main outstanding piece of technical debt — see
+`MIGRATION.md` for an earlier attempt at that split, which was never
+delivered.
+
+---
+
 ## Before your first deploy
 
 **Set the base path.** Open `vite.config.js` and edit one line:
 
 ```js
-const BASE = "/vibe-pass/";   // <- change this
+const BASE = "/Vibe-Pass/";   // <- change this
 ```
 
 | Deploy target | Value |
@@ -49,74 +73,51 @@ const BASE = "/vibe-pass/";   // <- change this
 
 Getting this wrong produces a blank page with 404s on every asset. It is the single most common deployment failure for this setup.
 
-**Then enable Pages.** In the repository: *Settings → Pages → Build and deployment → Source: **GitHub Actions***. Pushing to `main` runs `.github/workflows/deploy.yml`, which builds and publishes `dist/`.
+**Pages source.** `.github/workflows/deploy.yml` runs `actions/configure-pages`
+with `enablement: true`, which pins the Pages build type to *GitHub Actions*.
+This is deliberate: under the legacy branch-based source, Pages would publish
+the repository root verbatim, and the root `index.html` points at
+`/src/main.jsx` — uncompiled JSX that no browser can execute. Only the
+compiled `dist/` output is ever publishable.
 
----
-
-## Project structure
-
-```
-vibe-pass/
-├── index.html                  Entry document — one <script type="module">
-├── css/
-│   └── styles.css              All styling: tokens, layout, 20 keyframes, a11y
-├── js/
-│   ├── main.js                 createRoot mount
-│   ├── App.js                  useReducer owner + entry gate + Demo Control Bar
-│   ├── router.js               View routing, state machine, mock personas
-│   ├── theme.js                C / PC design tokens, focus rings, font stacks
-│   ├── lib/                    Pure helpers — format, geo, qr, schedule, ranking
-│   ├── data/                   Datasets — events, previews, talent, promoter
-│   └── components/
-│       ├── LandingPage.js      Public marketing surface
-│       ├── VibePassApp.js      Three-hub app shell
-│       ├── ErrorBoundary.js    Per-shell crash containment
-│       ├── ui.js               Shared primitives
-│       ├── consumer/  talent/  promoter/  landing/
-│       └── …                   One file per major component
-├── legacy/
-│   └── index.original.html     Frozen 13,384-line monolith — rollback reference
-└── .github/workflows/deploy.yml
-```
-
-### Dependency layering
-
-Imports flow strictly downward. There are **zero cycles**, verified by static analysis.
-
-```
-main.js → App.js → LandingPage / VibePassApp
-                 → views, sections, sheets, modals
-                 → components/ui.js
-                 → theme.js · lib/ · data/ · router.js   (leaf level)
-```
-
-`js/router.js` imports nothing at all — no React, no lucide, no d3. That is deliberate: the routing rules are unit-testable in plain Node.
+Pushing to `main` builds and deploys automatically. The workflow can also be
+run manually from the Actions tab (`workflow_dispatch`).
 
 ---
 
 ## Architecture notes
 
-### One reducer, three slices
+### Runtime dependencies are bundled, not fetched
 
-State lives in `js/router.js` as a pure reducer over a flat object with root, app-shell and landing slices. `App.js` owns the single `useReducer`; both shells receive `state` and `dispatch`. No callback threading between components.
+React, `lucide-react` and `d3` resolve from `node_modules` and are compiled
+into hashed chunks at build time. There is no CDN, no import map, and no
+in-browser Babel transpilation. An earlier revision of this project loaded all
+three from CDNs and transpiled ~570 KB of JSX in the browser on every page
+load; that cost several seconds of blank screen on a slow connection and is
+why the build step exists.
 
-Three side effects stay in the view layer on purpose, because they touch the DOM rather than state:
+`d3` is used by exactly one component and is split into its own chunk to keep
+it off the landing page's critical path.
 
-- `scrollToId` on marketing nav click (target exported as `SCROLL_TARGET_ID`)
-- the 900 ms tutorial timer (dispatches `START_TUTORIAL`)
-- typeface loading (now handled by `index.html` + `css/styles.css` §1)
+### Typefaces
 
-### Three role mappers that must not be merged
-
-`js/router.js` §3 defines `hubToAuthRole`, `authRoleToHub` and `entryRoleToHub`. They look interchangeable and are not — they differ on fallback behaviour. Collapsing them into one helper silently breaks the Referred Guest quick-login path. The file documents each with its original source line.
+`index.html` requests the Google Fonts stylesheet during HTML parse. The
+application also injects the identical URL at runtime (`FONT_HREF` in
+`src/main.jsx`); the browser serves the second request from cache. Removing
+either one leaves the other working.
 
 ### Hubs stay mounted
 
-All three hubs render simultaneously; `contents` / `hidden` toggles which one participates in layout. This preserves each hub's internal tab, wizard and scroll position across switches. Conditional rendering would reset every one of them.
+All three hubs render simultaneously; `contents` / `hidden` toggles which one
+participates in layout. This preserves each hub's internal tab, wizard and
+scroll position across switches. Conditional rendering would reset every one
+of them.
 
-### First-visit confirmation gate
+### Three role mappers that must not be merged
 
-Switching to a hub you have not visited this session raises a confirmation, then re-runs the pre-filled sign-up flow for that role. The hub you entered through counts as already visited. `visitedHubs` is **reset** on entry, not merged — see `mountAppShell()` in `router.js` for why.
+`hubToAuthRole`, `authRoleToHub` and `entryRoleToHub` look interchangeable and
+are not — they differ on fallback behaviour. Collapsing them into one helper
+silently breaks the Referred Guest quick-login path.
 
 ---
 
@@ -124,12 +125,11 @@ Switching to a hub you have not visited this session raises a confirmation, then
 
 | Item | Status |
 |---|---|
-| **Tailwind arbitrary classes** | The old Play CDN silently dropped classes like `h-[340px]`. The real PostCSS build compiles them, so some may now take effect for the first time. Diff against `legacy/index.original.html` in a browser before shipping. |
-| **`vpDropIn` keyframe** | Defined in `css/styles.css` §7, referenced zero times. Retained and flagged rather than deleted. |
-| **Two golds** | `C.gold` is `#F5B942`; the landing ticker and `GoldChip` hardcode `#D9A85C`. Both tokenised separately in `styles.css` §2. Reconciling is a design decision. |
-| **Three scope widenings** | `::selection`, `-webkit-tap-highlight-color` and font loading were component-scoped in the monolith and are now global. All are widenings; each has a documented one-line revert. |
-| **Tiered ticket crash** | Reported when selecting non-default ticket tiers. Not reproducible by static analysis. `ErrorBoundary` now prints the component stack instead of blanking the screen — reproduce with `sourcemap: true` enabled and send the trace. |
-| **`.js` extension on JSX** | `vite.config.js` carries the esbuild loader override. Renaming components to `.jsx` lets both blocks be deleted. |
+| **Single-file source** | `src/main.jsx` holds the whole application. It builds and ships correctly, but it is not a structure that scales with more than one contributor. |
+| **No `og:image`** | No share image asset exists in the repository, so the `og:image` tag is intentionally absent. Social shares render without a preview card until a 1200×630 image is added. |
+| **Remote imagery** | Event and venue imagery is loaded from `images.pexels.com` at runtime. The layout renders without it, but the cards appear empty if that host is unreachable. |
+| **Tiered ticket crash** | Reported when selecting non-default ticket tiers. Not reproducible by static analysis. Source maps are enabled in the production build, so a browser stack trace will point at real source lines — reproduce and send the trace. |
+| **`MIGRATION.md`** | Describes a 56-module split that was never committed to this repository. Retained for historical context only; it does not describe the current tree. |
 
 ---
 
