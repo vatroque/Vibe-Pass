@@ -1,13 +1,12 @@
 /** @type {import('tailwindcss').Config} */
 export default {
-  content: ["./index.html", "./js/**/*.{js,jsx}"],
+  content: ["./index.html", "./src/**/*.{js,jsx}"],
   theme: {
     extend: {
-      /* Mirrors the CSS custom properties in css/styles.css §2 so Tailwind
-         utilities and inline `style={{ color: C.emerald }}` resolve to the
-         same values. The `C` / `PC` objects in js/theme.js stay authoritative
-         for inline styles; this block only makes the palette reachable from
-         utility classes. */
+      /* Mirrors the palette used for inline `style={{ color: C.emerald }}`
+         values so Tailwind utilities resolve to the same colours. The `C` /
+         `PC` objects in src/main.jsx stay authoritative for inline styles;
+         this block only makes the palette reachable from utility classes. */
       colors: {
         obsidian: "#0A0A0C",
         surface: { DEFAULT: "#111318", hi: "#171A21" },

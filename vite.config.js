@@ -2,7 +2,7 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 
 /* ============================================================================
- * VIBE PASS™ — vite.config.js
+ * VIBE PASS — vite.config.js
  * ----------------------------------------------------------------------------
  * BASE PATH — set this before your first deploy.
  *   GitHub Pages project site  https://<user>.github.io/<repo>/  ->  "/<repo>/"
@@ -15,27 +15,15 @@ export default defineConfig({
   base: BASE,
   plugins: [react()],
 
-  /* Components carry JSX in .js files rather than .jsx. These two blocks tell
-     esbuild to parse them accordingly. Rename every component to .jsx and both
-     blocks can be deleted. */
-  esbuild: {
-    loader: "jsx",
-    include: /\.js$/,
-    exclude: [],
-  },
-  optimizeDeps: {
-    esbuildOptions: { loader: { ".js": "jsx" } },
-  },
-
   build: {
     outDir: "dist",
-    /* Keep source maps on. They are what makes the ErrorBoundary trace point
+    /* Keep source maps on. They are what makes a production stack trace point
        at real source lines instead of bundled output. */
     sourcemap: true,
     rollupOptions: {
       output: {
-        /* d3 is used by exactly one component (DiscoveryMap). Splitting it out
-           keeps ~90 KB off the landing page's critical path. */
+        /* d3 is used by exactly one component (the discovery map). Splitting it
+           out keeps ~90 KB off the landing page's critical path. */
         manualChunks: {
           d3: ["d3"],
           react: ["react", "react-dom"],

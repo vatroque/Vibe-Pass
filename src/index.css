@@ -1,0 +1,18 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Base document styling. Previously an inline <style> block in index.html,
+   moved here so it ships through the compiled stylesheet rather than as an
+   unhashed inline blob. */
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: #0a0a0c;
+  min-height: 100vh;
+}
+
+#root {
+  min-height: 100vh;
+}

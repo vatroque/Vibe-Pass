@@ -1,3 +1,12 @@
+> **Status: not delivered.** This report describes a monolith-to-modules split
+> that was never committed to this repository. The `js/`, `css/` and `legacy/`
+> trees it refers to do not exist in any commit, and the `index.html` that was
+> published alongside it pointed at a `js/main.js` that was never added — which
+> blanked the live site until it was reverted. The application currently lives
+> in `src/main.jsx` as a single module. This file is retained for historical
+> context and as a reference for whoever attempts the split again; it does not
+> describe the current tree.
+
 # Migration Report — monolith → modular workspace
 
 Source: `legacy/index.original.html` (13,384 lines / 569,883 bytes, one inline
