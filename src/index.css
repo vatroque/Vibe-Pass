@@ -16,3 +16,34 @@ body {
 #root {
   min-height: 100vh;
 }
+
+/* Leaflet chrome, themed to the app's dark palette. Leaflet ships a light
+   default (white attribution bar, blue links) that reads as a foreign element
+   against the map surface. Scoped to .leaflet-container so nothing else in the
+   app is affected. */
+.leaflet-container {
+  background: #0a0a0c;
+  font-family: inherit;
+  /* Leaflet focuses the container on interaction; the default focus ring sits
+     outside the rounded clip and looks like a rendering fault. Pins and the
+     overlay controls remain individually focusable. */
+  outline: none;
+}
+
+.leaflet-control-attribution {
+  background: rgba(10, 10, 12, 0.78) !important;
+  color: #6b7280 !important;
+  font-size: 9px !important;
+  padding: 2px 6px !important;
+  border-top-left-radius: 8px;
+}
+
+.leaflet-control-attribution a {
+  color: #9ca3af !important;
+}
+
+.leaflet-tile-pane {
+  /* The CARTO dark basemap is slightly brighter than the app surface; this
+     settles it behind the emerald/amethyst pins instead of competing. */
+  filter: saturate(0.85) brightness(0.9);
+}
