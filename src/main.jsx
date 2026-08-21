@@ -135,16 +135,7 @@ const C = {
 
 const focusRing = "focus:outline-none focus:ring-2 focus:ring-purple-400";
 const INITIAL_CENTER = [24.494, 54.395];
-const INITIAL_ZOOM = 12;
 const SHIFT_THRESHOLD_M = 250;
-
-/* Opening frame covers the Abu Dhabi cluster only; Dubai listings sit
-outside on purpose - reach them by tapping their feed card (flyTo)
-or by dragging northeast and using "Search this area". */
-const INITIAL_FIT_BOUNDS = [
-  [24.39, 54.28],
-  [24.585, 54.66],
-];
 
 const FILTERS = [
   { id: "all", label: "All" },
@@ -2114,7 +2105,11 @@ function BookingFlow({ event, onComplete, onGoWallet, onClose, setLocked }) {
   const [optionId, setOptionId] = useState(options[0].id);
   const [qty, setQty] = useState(1);
   const [stage, setStage] = useState("select"); // select | processing | confirmed
-  const orderRef = useRef(`VP-${Date.now().toString(36).toUpperCase().slice(-6)}`);
+  /* Lazy initializer: evaluated once on mount, so the order reference stays
+  stable across re-renders and is safe to read during render. */
+  const [orderId] = useState(
+    () => `VP-${Date.now().toString(36).toUpperCase().slice(-6)}`
+  );
 
   const option = options.find((o) => o.id === optionId) || options[0];
   const maxQty = Math.max(1, Math.min(6, option.left));
@@ -2131,7 +2126,7 @@ function BookingFlow({ event, onComplete, onGoWallet, onClose, setLocked }) {
     setStage("processing");
     setLocked(true);
     window.setTimeout(() => {
-      onComplete(event, option, qty, orderRef.current);
+      onComplete(event, option, qty, orderId);
       setStage("confirmed");
       setLocked(false);
     }, 1500);
@@ -2362,7 +2357,7 @@ function BookingFlow({ event, onComplete, onGoWallet, onClose, setLocked }) {
             <div className="flex items-center justify-between text-xs">
               <span style={{ color: C.textLo }}>Order</span>
               <span className="font-mono font-semibold" style={{ color: C.textHi }}>
-                {orderRef.current}
+                {orderId}
               </span>
             </div>
             <div className="mt-2 flex items-center justify-between text-xs">
@@ -13282,4 +13277,106 @@ export default function VibePassRoot() {
   );
 }
 
-createRoot(document.getElementById("root")).render(<VibePassRoot />);
+/* Crash containment. Without this, any render error unmounts the whole tree
+and leaves an empty <div id="root"> — a blank screen with no indication that
+anything went wrong, which is precisely the failure this project already
+shipped once. React has no hook equivalent for componentDidCatch, so this
+stays a class component.
+
+Source maps are enabled in the production build, so the stack shown here
+points at real source lines rather than bundled output. */
+class AppErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { error: null, info: null };
+    this.handleReload = this.handleReload.bind(this);
+  }
+
+  static getDerivedStateFromError(error) {
+    return { error: error, info: null };
+  }
+
+  componentDidCatch(error, info) {
+    this.setState({ error: error, info: info });
+    /* Left in deliberately: this is the only breadcrumb a tester can copy out
+    of a deployed build when reporting a crash. */
+    console.error("Vibe Pass crashed:", error, info);
+  }
+
+  handleReload() {
+    window.location.reload();
+  }
+
+  render() {
+    if (!this.state.error) {
+      return this.props.children;
+    }
+
+    const detail = this.state.info ? this.state.info.componentStack : "";
+
+    return (
+      <div
+        className="flex min-h-screen w-full items-center justify-center px-6"
+        style={{ background: C.bg }}
+        role="alert"
+      >
+        <div className="w-full" style={{ maxWidth: 420 }}>
+          <div
+            className="flex h-11 w-11 items-center justify-center rounded-2xl"
+            style={{ background: `${C.danger}1F`, border: `1px solid ${C.danger}55` }}
+          >
+            <AlertTriangle size={20} color={C.danger} />
+          </div>
+
+          <h1
+            className="mt-4 text-xl font-extrabold tracking-tight"
+            style={{ color: C.textHi }}
+          >
+            Something broke on this screen
+          </h1>
+          <p className="mt-2 text-sm leading-relaxed" style={{ color: C.textMid }}>
+            The rest of Vibe Pass is fine — this view hit an error and stopped
+            rather than leaving you on a blank page. Reloading usually clears it.
+          </p>
+
+          <button
+            onClick={this.handleReload}
+            className="mt-5 w-full rounded-2xl px-4 py-3 text-sm font-bold transition-transform active:scale-95"
+            style={{ background: C.emerald, color: "#04140A" }}
+          >
+            Reload Vibe Pass
+          </button>
+
+          <details className="mt-5">
+            <summary
+              className="cursor-pointer text-xs font-semibold uppercase"
+              style={{ color: C.textLo, letterSpacing: 1 }}
+            >
+              Technical details
+            </summary>
+            <pre
+              className="mt-2 overflow-auto rounded-xl p-3 font-mono"
+              style={{
+                background: C.surface,
+                border: `1px solid ${C.line}`,
+                color: C.textMid,
+                fontSize: 10,
+                maxHeight: 220,
+                whiteSpace: "pre-wrap",
+              }}
+            >
+              {String(this.state.error)}
+              {detail}
+            </pre>
+          </details>
+        </div>
+      </div>
+    );
+  }
+}
+
+createRoot(document.getElementById("root")).render(
+  <AppErrorBoundary>
+    <VibePassRoot />
+  </AppErrorBoundary>
+);
