@@ -291,6 +291,17 @@ function dayLabel(days) {
   return `${WEEKDAY_NAMES[d.getDay()]}, ${d.getDate()} ${MONTH_NAMES[d.getMonth()]}`;
 }
 
+/* The next occurrence of a given weekday, as a "Fri, 4 Sep" label. Some
+   listings are tied to a night rather than a date — a Friday concert, a
+   "Thu - Sat Nights" venue — so a fixed day offset would eventually print a
+   Tuesday and contradict the copy beside it. 0 = Sunday, 5 = Friday.
+   `weeksAhead` pushes past the nearest one. */
+function nextWeekdayLabel(weekday, weeksAhead = 0) {
+  const today = offsetDate(0);
+  const delta = ((weekday - today.getDay() + 7) % 7) || 7;
+  return dayLabel(delta + weeksAhead * 7);
+}
+
 /* Same offset as a timestamp, for the few places that compare a date against
    "now" rather than printing it. */
 function offsetTime(days) {
@@ -6781,7 +6792,7 @@ const ORGANIZER_PROPERTIES = [
     category: 'Concert & Arena',
     venue: 'Etihad Arena',
     zone: 'VIP Lounge & Main Stage',
-    date: 'Fri, 25 Jul',
+    date: nextWeekdayLabel(5, 1),
     time: '7:00 PM – 2:00 AM',
     dctPermit: 'AD-2026-77419',
     capacity: 8000,
@@ -6790,9 +6801,9 @@ const ORGANIZER_PROPERTIES = [
     ticketPrice: 340,
     initialEscrow: 212500,
     shifts: [
-      { id: 'sh1', role: 'Mixologist', venue: 'Etihad Arena', zone: 'VIP Lounge', date: 'Fri, 25 Jul', time: '7:00 PM – 1:00 AM', needed: 3, filled: 1, urgency: 'high' },
-      { id: 'sh2', role: 'Live DJ', venue: 'Etihad Arena', zone: 'Main Stage', date: 'Fri, 25 Jul', time: '9:00 PM – 12:30 AM', needed: 1, filled: 0, urgency: 'critical' },
-      { id: 'sh3', role: 'Security Detail', venue: 'Etihad Arena', zone: 'Perimeter', date: 'Fri, 25 Jul', time: '5:00 PM – 2:00 AM', needed: 4, filled: 2, urgency: 'medium' },
+      { id: 'sh1', role: 'Mixologist', venue: 'Etihad Arena', zone: 'VIP Lounge', date: nextWeekdayLabel(5, 1), time: '7:00 PM – 1:00 AM', needed: 3, filled: 1, urgency: 'high' },
+      { id: 'sh2', role: 'Live DJ', venue: 'Etihad Arena', zone: 'Main Stage', date: nextWeekdayLabel(5, 1), time: '9:00 PM – 12:30 AM', needed: 1, filled: 0, urgency: 'critical' },
+      { id: 'sh3', role: 'Security Detail', venue: 'Etihad Arena', zone: 'Perimeter', date: nextWeekdayLabel(5, 1), time: '5:00 PM – 2:00 AM', needed: 4, filled: 2, urgency: 'medium' },
     ],
     applicants: [
       { id: 'a1', name: 'Fatima Al Suwaidi', role: 'Mixologist', shiftId: 'sh1', photo: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?ixlib=rb-4.0.3&auto=format&fit=crop&w=300&h=300&q=80', rating: 4.9, completedGigs: 62, rateAED: 85, estHours: 6, emiratesIdVerified: true, mohrePermitActive: true, verified: true, status: 'pending' },
@@ -6829,8 +6840,8 @@ const ORGANIZER_PROPERTIES = [
     ticketPrice: 45,
     initialEscrow: 48000,
     shifts: [
-      { id: 'sh4', role: 'Head Barista', venue: 'Marina Mall Walk', zone: 'Espresso Bar', date: 'Sat, 26 Jul', time: '8:00 AM – 4:00 PM', needed: 2, filled: 1, urgency: 'high' },
-      { id: 'sh5', role: 'Floor Supervisor', venue: 'Marina Mall Walk', zone: 'Terrace', date: 'Sat, 26 Jul', time: '12:00 PM – 8:00 PM', needed: 1, filled: 1, urgency: 'medium' },
+      { id: 'sh4', role: 'Head Barista', venue: 'Marina Mall Walk', zone: 'Espresso Bar', date: nextWeekdayLabel(6, 1), time: '8:00 AM – 4:00 PM', needed: 2, filled: 1, urgency: 'high' },
+      { id: 'sh5', role: 'Floor Supervisor', venue: 'Marina Mall Walk', zone: 'Terrace', date: nextWeekdayLabel(6, 1), time: '12:00 PM – 8:00 PM', needed: 1, filled: 1, urgency: 'medium' },
     ],
     applicants: [
       { id: 'a7', name: 'Elena Rostova', role: 'Head Barista', shiftId: 'sh4', photo: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?ixlib=rb-4.0.3&auto=format&fit=crop&w=300&h=300&q=80', rating: 4.9, completedGigs: 210, rateAED: 90, estHours: 8, emiratesIdVerified: true, mohrePermitActive: true, verified: true, status: 'pending' },
@@ -6860,8 +6871,8 @@ const ORGANIZER_PROPERTIES = [
     ticketPrice: 200,
     initialEscrow: 160000,
     shifts: [
-      { id: 'sh6', role: 'Mixologist', venue: 'Yas Island', zone: 'VIP Deck', date: 'Sat, 26 Jul', time: '10:00 PM – 4:00 AM', needed: 4, filled: 2, urgency: 'critical' },
-      { id: 'sh7', role: 'Security Detail', venue: 'Yas Island', zone: 'Entry Lobby', date: 'Sat, 26 Jul', time: '9:00 PM – 5:00 AM', needed: 6, filled: 5, urgency: 'high' },
+      { id: 'sh6', role: 'Mixologist', venue: 'Yas Island', zone: 'VIP Deck', date: nextWeekdayLabel(6, 1), time: '10:00 PM – 4:00 AM', needed: 4, filled: 2, urgency: 'critical' },
+      { id: 'sh7', role: 'Security Detail', venue: 'Yas Island', zone: 'Entry Lobby', date: nextWeekdayLabel(6, 1), time: '9:00 PM – 5:00 AM', needed: 6, filled: 5, urgency: 'high' },
     ],
     applicants: [
       { id: 'a8', name: 'Marcus Sterling', role: 'Mixologist', shiftId: 'sh6', photo: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?ixlib=rb-4.0.3&auto=format&fit=crop&w=300&h=300&q=80', rating: 4.8, completedGigs: 85, rateAED: 95, estHours: 6, emiratesIdVerified: true, mohrePermitActive: true, verified: true, status: 'pending' },
