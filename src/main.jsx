@@ -5896,17 +5896,24 @@ function ConsumerHub({ postedEvents = [], isActiveHub }) {
   const tabTouchStartRef = useRef(null);
   const handleTabTouchStart = useCallback((e) => {
     const t = e.touches[0];
-    tabTouchStartRef.current = { x: t.clientX, y: t.clientY };
+    tabTouchStartRef.current = {
+      x: t.clientX,
+      y: t.clientY,
+      /* Leaflet reads a horizontal drag as a pan, so a gesture that begins on
+      the map belongs to the map. One starting on the header, the filter chips
+      or the caption underneath is still a tab swipe — hence tracking where the
+      touch started rather than disabling the gesture for the whole Map tab. */
+      onMap: Boolean(t.target && t.target.closest && t.target.closest(".leaflet-container")),
+    };
   }, []);
   const handleTabTouchEnd = useCallback(
     (e) => {
       const start = tabTouchStartRef.current;
       tabTouchStartRef.current = null;
       if (!start) return;
-      /* The Map tab owns horizontal drag: panning Leaflet is the same
-      gesture as a tab swipe, so a pan would also cycle the tab out from
-      under the user. The bottom nav still switches tabs there. */
-      if (tab === "map") return;
+      /* Only the map itself claims the gesture; the rest of the Map tab
+      still swipes between tabs. */
+      if (start.onMap) return;
       const t = e.changedTouches[0];
       const dx = t.clientX - start.x;
       const dy = t.clientY - start.y;
@@ -6398,7 +6405,15 @@ function TalentHub({ postedEvents = [], isActiveHub }) {
   const tabTouchStartRef = useRef(null);
   const handleTabTouchStart = useCallback((e) => {
     const t = e.touches[0];
-    tabTouchStartRef.current = { x: t.clientX, y: t.clientY };
+    tabTouchStartRef.current = {
+      x: t.clientX,
+      y: t.clientY,
+      /* Leaflet reads a horizontal drag as a pan, so a gesture that begins on
+      the map belongs to the map. One starting on the header, the filter chips
+      or the caption underneath is still a tab swipe — hence tracking where the
+      touch started rather than disabling the gesture for the whole Map tab. */
+      onMap: Boolean(t.target && t.target.closest && t.target.closest(".leaflet-container")),
+    };
   }, []);
   const handleTabTouchEnd = useCallback(
     (e) => {
@@ -10938,6 +10953,93 @@ function AvatarImage({ src, alt, name, className, style }) {
   );
 }
 
+/* Swipeable card gallery.
+
+The detail sheets already let you page through an item's photos; the cards in
+the grid showed gallery[0] and nothing else, so the other three images were
+only reachable by opening the item first.
+
+Two details make this work inside a card that is itself a button:
+
+- A swipe must not also count as a tap. onClickCapture swallows the click that
+  follows a gesture, so paging photos never opens the detail sheet by accident.
+- touchend stops propagating, so a hub's swipe-to-change-tabs gesture does not
+  also fire when the swipe was meant for the photos.
+
+A tap with no horizontal travel still falls through to the card, so opening an
+item works exactly as before. */
+function CardGallery({ photos, iconSize = 44 }) {
+  const [index, setIndex] = useState(0);
+  const startRef = useRef(null);
+  const swipedRef = useRef(false);
+
+  const handleTouchStart = useCallback((e) => {
+    const t = e.touches[0];
+    startRef.current = { x: t.clientX, y: t.clientY };
+    swipedRef.current = false;
+  }, []);
+
+  const handleTouchEnd = useCallback(
+    (e) => {
+      const start = startRef.current;
+      startRef.current = null;
+      if (!start) return;
+      const t = e.changedTouches[0];
+      const dx = t.clientX - start.x;
+      const dy = t.clientY - start.y;
+      /* 40px rather than the 60px used for tab swipes: a card is a smaller
+      target, and the gesture is bounded by the card's own width. */
+      if (Math.abs(dx) < 40 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
+      e.stopPropagation();
+      swipedRef.current = true;
+      setIndex((i) => {
+        const next = dx < 0 ? i + 1 : i - 1;
+        if (next < 0) return 0;
+        if (next > photos.length - 1) return photos.length - 1;
+        return next;
+      });
+    },
+    [photos.length]
+  );
+
+  const handleClickCapture = useCallback((e) => {
+    if (!swipedRef.current) return;
+    swipedRef.current = false;
+    e.stopPropagation();
+    e.preventDefault();
+  }, []);
+
+  const photo = photos[index] || photos[0];
+
+  return (
+    <div
+      className="absolute inset-0"
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+      onClickCapture={handleClickCapture}
+    >
+      <div key={index} className="h-full w-full" style={{ animation: "vlFadeUp 0.3s ease" }}>
+        <GalleryVisual src={photo.src} icon={photo.icon} index={index} iconSize={iconSize} />
+      </div>
+
+      {photos.length > 1 ? (
+        <div className="absolute bottom-2 left-0 right-0 flex justify-center gap-1" style={{ zIndex: 5 }}>
+          {photos.map((_, i) => (
+            <span
+              key={i}
+              className="h-1 rounded-full transition-all"
+              style={{
+                width: i === index ? 16 : 6,
+                background: i === index ? C.emerald : "rgba(255,255,255,0.5)",
+              }}
+            />
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function GoldChip() {
   return (
     <span
@@ -11515,7 +11617,7 @@ function EventPreviewCard({ item, onGetPass, onOpenDetail }) {
         className="relative h-40 w-full overflow-hidden"
         style={{ backgroundImage: `linear-gradient(135deg, ${C.surfaceHi}, ${C.bg})` }}
       >
-        <GalleryVisual src={item.gallery[0].src} icon={item.gallery[0].icon} index={0} iconSize={44} />
+        <CardGallery photos={item.gallery} iconSize={44} />
         <div
           className="absolute inset-0"
           style={{ backgroundImage: "linear-gradient(to top, rgba(10,10,12,0.92), rgba(10,10,12,0.05) 55%)" }}
@@ -11666,7 +11768,7 @@ function SpotPreviewCard({ item, onSave, onClaim, onOpenDetail }) {
         className="relative h-40 w-full overflow-hidden"
         style={{ backgroundImage: `linear-gradient(135deg, ${C.surfaceHi}, ${C.bg})` }}
       >
-        <GalleryVisual src={item.gallery[0].src} icon={item.gallery[0].icon} index={0} iconSize={44} />
+        <CardGallery photos={item.gallery} iconSize={44} />
         <div
           className="absolute inset-0"
           style={{ backgroundImage: "linear-gradient(to top, rgba(10,10,12,0.92), rgba(10,10,12,0.05) 55%)" }}
