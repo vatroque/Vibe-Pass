@@ -250,6 +250,39 @@ function haversineMeters(lat1, lng1, lat2, lng2) {
 }
 
 /* Listings database - ticketed events + always-on venues */
+/* Demo calendar.
+
+Every date below is generated relative to the day the app loads rather than
+hardcoded. A prototype is opened weeks or months after it is built, and a feed
+of events that have already happened reads as abandoned. Offsets are in days:
+positive is upcoming, negative is history (past payouts, tips and completed
+bookings, which should stay in the past).
+
+Dates are display-only — nothing sorts or filters on them — so these are
+formatted strings rather than Date objects. */
+const DAY_MS = 86400000;
+const WEEKDAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const MONTH_NAMES = [
+  "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+  "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+];
+
+function offsetDate(days) {
+  return new Date(Date.now() + days * DAY_MS);
+}
+
+/* "Fri, 4 Sep 2026" */
+function eventDate(days) {
+  const d = offsetDate(days);
+  return `${WEEKDAY_NAMES[d.getDay()]}, ${d.getDate()} ${MONTH_NAMES[d.getMonth()]} ${d.getFullYear()}`;
+}
+
+/* "4 Sep 2026" */
+function shortDate(days) {
+  const d = offsetDate(days);
+  return `${d.getDate()} ${MONTH_NAMES[d.getMonth()]} ${d.getFullYear()}`;
+}
+
 const ALL_EVENTS = [
   {
     id: "yas-neon",
@@ -258,7 +291,7 @@ const ALL_EVENTS = [
     zone: "Yas Island",
     title: "Neon Pulse Festival",
     venue: "Etihad Park, Yas Island",
-    date: "Fri, 24 Jul 2026",
+    date: eventDate(5),
     time: "20:00 - 02:00",
     price: 295,
     pricingType: "tiered",
@@ -285,7 +318,7 @@ const ALL_EVENTS = [
     zone: "Yas Island",
     title: "Full Throttle Afterparty",
     venue: "Yas Marina, Trackside Deck",
-    date: "Sat, 25 Jul 2026",
+    date: eventDate(8),
     time: "22:00 - 04:00",
     price: 260,
     pricingType: "tiered",
@@ -312,7 +345,7 @@ const ALL_EVENTS = [
     zone: "Saadiyat Cultural District",
     title: "Symphony Under the Stars",
     venue: "Saadiyat Open-Air Amphitheatre",
-    date: "Sat, 25 Jul 2026",
+    date: eventDate(8),
     time: "19:30 - 22:30",
     price: 240,
     pricingType: "seat-selection",
@@ -339,7 +372,7 @@ const ALL_EVENTS = [
     zone: "Saadiyat Cultural District",
     title: "Sundown Acoustic Sessions",
     venue: "Saadiyat Beach Club Lawn",
-    date: "Sun, 26 Jul 2026",
+    date: eventDate(10),
     time: "17:30 - 21:00",
     price: 150,
     pricingType: "tiered",
@@ -366,7 +399,7 @@ const ALL_EVENTS = [
     zone: "Al Maryah Island",
     title: "Skyline Sessions: Deep House",
     venue: "The Galleria Rooftop, Al Maryah",
-    date: "Thu, 23 Jul 2026",
+    date: eventDate(3),
     time: "17:00 - 01:00",
     price: 180,
     pricingType: "tiered",
@@ -393,7 +426,7 @@ const ALL_EVENTS = [
     zone: "Al Reem Island",
     title: "Reem Nights: Indie Live",
     venue: "Reem Central Park Stage",
-    date: "Fri, 24 Jul 2026",
+    date: eventDate(5),
     time: "18:00 - 23:00",
     price: 165,
     pricingType: "tiered",
@@ -420,7 +453,7 @@ const ALL_EVENTS = [
     zone: "Corniche",
     title: "Corniche Beats Open-Air",
     venue: "Corniche Beach, Gate 2",
-    date: "Thu, 30 Jul 2026",
+    date: eventDate(20),
     time: "18:30 - 00:00",
     price: 195,
     pricingType: "tiered",
@@ -447,7 +480,7 @@ const ALL_EVENTS = [
     zone: "Khalifa City",
     title: "Desert Bass Warehouse",
     venue: "KC Industrial Hangar 7",
-    date: "Fri, 31 Jul 2026",
+    date: eventDate(23),
     time: "21:00 - 03:00",
     price: 210,
     pricingType: "tiered",
@@ -474,7 +507,7 @@ const ALL_EVENTS = [
     zone: "Zayed Sports City",
     title: "Stadium Anthems Live",
     venue: "Zayed Sports City Stadium",
-    date: "Sat, 1 Aug 2026",
+    date: eventDate(25),
     time: "19:00 - 23:30",
     price: 320,
     pricingType: "seat-selection",
@@ -501,7 +534,7 @@ const ALL_EVENTS = [
     zone: "Eastern Mangroves",
     title: "Mangrove Lantern Concert",
     venue: "Eastern Mangroves Promenade",
-    date: "Sun, 2 Aug 2026",
+    date: eventDate(27),
     time: "18:00 - 21:30",
     price: 120,
     pricingType: "tiered",
@@ -528,7 +561,7 @@ const ALL_EVENTS = [
     zone: "Al Nahyan",
     title: "UAE Pro League: Al Jazira vs Al Wahda",
     venue: "Mohammed bin Zayed Stadium",
-    date: "Sat, 8 Aug 2026",
+    date: eventDate(42),
     time: "20:45 - 22:45",
     price: 95,
     pricingType: "seat-selection",
@@ -555,7 +588,7 @@ const ALL_EVENTS = [
     zone: "Zayed Sports City",
     title: "Mubadala Open: Finals Night",
     venue: "International Tennis Centre",
-    date: "Sun, 9 Aug 2026",
+    date: eventDate(45),
     time: "18:00 - 22:00",
     price: 220,
     pricingType: "seat-selection",
@@ -582,7 +615,7 @@ const ALL_EVENTS = [
     zone: "Yas Island",
     title: "Yas Gaming Grounds: Valorant Clash",
     venue: "Etihad Arena, Yas Bay",
-    date: "Fri, 14 Aug 2026",
+    date: eventDate(57),
     time: "16:00 - 23:00",
     price: 145,
     pricingType: "tiered",
@@ -609,7 +642,7 @@ const ALL_EVENTS = [
     zone: "ADNEC",
     title: "Desert Circuit: Sim-Racing Final",
     venue: "ADNEC Hall 5",
-    date: "Sat, 15 Aug 2026",
+    date: eventDate(59),
     time: "17:00 - 22:00",
     price: 110,
     pricingType: "tiered",
@@ -636,7 +669,7 @@ const ALL_EVENTS = [
     zone: "Downtown Dubai",
     title: "Mirage: An Arabian Musical",
     venue: "Dubai Opera",
-    date: "Thu, 20 Aug 2026",
+    date: eventDate(71),
     time: "19:30 - 22:15",
     price: 350,
     pricingType: "seat-selection",
@@ -663,7 +696,7 @@ const ALL_EVENTS = [
     zone: "Al Hosn",
     title: "Qasr Stories: A Heritage Musical",
     venue: "Cultural Foundation Theater",
-    date: "Fri, 21 Aug 2026",
+    date: eventDate(74),
     time: "20:00 - 22:00",
     price: 175,
     pricingType: "seat-selection",
@@ -690,7 +723,7 @@ const ALL_EVENTS = [
     zone: "Jubail Island",
     title: "Jubail Night Kayak & Glow Tour",
     venue: "Jubail Mangrove Park",
-    date: "Sat, 25 Jul 2026",
+    date: eventDate(8),
     time: "18:30 - 21:00",
     price: 130,
     pricingType: "tiered",
@@ -717,7 +750,7 @@ const ALL_EVENTS = [
     zone: "Al Ras Al Akhdar",
     title: "Qasr Al Watan: Palace Lights Tour",
     venue: "Qasr Al Watan",
-    date: "Thu, 23 Jul 2026",
+    date: eventDate(3),
     time: "19:00 - 21:00",
     price: 65,
     pricingType: "tiered",
@@ -854,7 +887,7 @@ const ALL_EVENTS = [
     zone: "Al Maryah Island",
     title: "Stand-Up Showdown: Gulf Comedy Nights",
     venue: "The Attic Comedy Club, Al Maryah Island",
-    date: "Fri, 4 Sep 2026",
+    date: eventDate(108),
     time: "20:30 - 23:00",
     price: 120,
     pricingType: "flat",
@@ -878,7 +911,7 @@ const ALL_EVENTS = [
     zone: "Hudayriyat Island",
     title: "Desert Laughs Comedy Festival",
     venue: "Hudayriyat Island Amphitheatre",
-    date: "Sat, 19 Sep 2026",
+    date: eventDate(145),
     time: "19:00 - 22:30",
     price: 175,
     pricingType: "flat",
@@ -902,7 +935,7 @@ const ALL_EVENTS = [
     zone: "Saadiyat Cultural District",
     title: "Manarat Al Saadiyat: Contemporary Visions",
     venue: "Manarat Al Saadiyat",
-    date: "Thu, 10 Sep 2026",
+    date: eventDate(123),
     time: "18:00 - 21:00",
     price: 0,
     pricingType: "flat",
@@ -926,7 +959,7 @@ const ALL_EVENTS = [
     zone: "Al Mina",
     title: "Saffron Collective: Emerging Voices Exhibition",
     venue: "Warehouse421, Al Mina",
-    date: "Fri, 25 Sep 2026",
+    date: eventDate(159),
     time: "17:00 - 22:00",
     price: 45,
     pricingType: "flat",
@@ -950,7 +983,7 @@ const ALL_EVENTS = [
     zone: "Al Maryah Island",
     title: "Gulf Founders Summit",
     venue: "ADGM Square, Al Maryah Island",
-    date: "Tue, 8 Sep 2026",
+    date: eventDate(118),
     time: "09:00 - 17:00",
     price: 650,
     pricingType: "flat",
@@ -974,7 +1007,7 @@ const ALL_EVENTS = [
     zone: "Downtown Dubai",
     title: "Women in Tech: MENA Leadership Forum",
     venue: "DIFC Gate Village, Dubai",
-    date: "Wed, 16 Sep 2026",
+    date: eventDate(137),
     time: "10:00 - 16:00",
     price: 380,
     pricingType: "flat",
@@ -998,7 +1031,7 @@ const ALL_EVENTS = [
     zone: "Al Maryah Island",
     title: "Abu Dhabi Fashion Week: Runway Gala",
     venue: "The Galleria, Al Maryah Island",
-    date: "Sat, 12 Sep 2026",
+    date: eventDate(128),
     time: "19:00 - 23:00",
     price: 420,
     pricingType: "flat",
@@ -1022,7 +1055,7 @@ const ALL_EVENTS = [
     zone: "Downtown Dubai",
     title: "Dubai Design District Pop-Up Showcase",
     venue: "d3 (Dubai Design District)",
-    date: "Sun, 27 Sep 2026",
+    date: eventDate(164),
     time: "16:00 - 21:00",
     price: 60,
     pricingType: "flat",
@@ -1046,7 +1079,7 @@ const ALL_EVENTS = [
     zone: "Hudayriyat Island",
     title: "Sunrise Yoga & Sound Bath Retreat",
     venue: "Hudayriyat Island Beach",
-    date: "Fri, 11 Sep 2026",
+    date: eventDate(125),
     time: "06:00 - 08:30",
     price: 95,
     pricingType: "flat",
@@ -1070,7 +1103,7 @@ const ALL_EVENTS = [
     zone: "Corniche",
     title: "Corniche Wellness Festival",
     venue: "Corniche Beach, Gate 5",
-    date: "Sat, 26 Sep 2026",
+    date: eventDate(162),
     time: "08:00 - 13:00",
     price: 0,
     pricingType: "flat",
@@ -1094,7 +1127,7 @@ const ALL_EVENTS = [
     zone: "Yas Island",
     title: "Yas Island Family Fun Day",
     venue: "Yas Bay Waterfront",
-    date: "Fri, 18 Sep 2026",
+    date: eventDate(142),
     time: "10:00 - 18:00",
     price: 55,
     pricingType: "flat",
@@ -1118,7 +1151,7 @@ const ALL_EVENTS = [
     zone: "Al Maryah Island",
     title: "Kids' Discovery Carnival",
     venue: "Umm Al Emarat Park",
-    date: "Sat, 3 Oct 2026",
+    date: eventDate(179),
     time: "09:00 - 17:00",
     price: 35,
     pricingType: "flat",
@@ -1142,7 +1175,7 @@ const ALL_EVENTS = [
     zone: "Al Hosn",
     title: "Emirati Coffee & Culture Workshop",
     venue: "Qasr Al Hosn Cultural Site",
-    date: "Sun, 6 Sep 2026",
+    date: eventDate(113),
     time: "17:00 - 19:00",
     price: 85,
     pricingType: "flat",
@@ -1166,7 +1199,7 @@ const ALL_EVENTS = [
     zone: "Al Mina",
     title: "Pottery & Ceramics Masterclass",
     venue: "Warehouse421, Al Mina",
-    date: "Sat, 20 Sep 2026",
+    date: eventDate(147),
     time: "14:00 - 17:00",
     price: 150,
     pricingType: "flat",
@@ -1190,7 +1223,7 @@ const ALL_EVENTS = [
     zone: "Al Bateen",
     title: "Oryx Rooftop Sessions: Deep House Edition",
     venue: "Al Bateen Marina Rooftop",
-    date: "Thu, 3 Sep 2026",
+    date: eventDate(106),
     time: "21:00 - 01:00",
     price: 140,
     pricingType: "flat",
@@ -3160,15 +3193,15 @@ const SEED_MENTEES = [
 ];
 
 const SEED_DIVIDENDS = [
-  { id: "d1", event: "Hangar Nights Vol. 4", venue: "KC Industrial Hangar 7", date: "5 Jul 2026", pct: 34, amount: 210 },
-  { id: "d2", event: "Yas Bass Sessions — Vol. 3", venue: "Etihad Park, Yas Island", date: "14 Jun 2026", pct: 18, amount: 95 },
+  { id: "d1", event: "Hangar Nights Vol. 4", venue: "KC Industrial Hangar 7", date: shortDate(-48), pct: 34, amount: 210 },
+  { id: "d2", event: "Yas Bass Sessions — Vol. 3", venue: "Etihad Park, Yas Island", date: shortDate(-69), pct: 18, amount: 95 },
 ];
 
 const SEED_PAYOUTS = [
-  { id: "p1", date: "12 Jul 2026", event: "Corniche Sunset Sessions", gross: 2100, fee: 84, status: "Paid" },
-  { id: "p2", date: "5 Jul 2026", event: "Hangar Nights Vol. 4", gross: 2600, fee: 0, status: "Paid" },
-  { id: "p3", date: "28 Jun 2026", event: "Maryah Rooftop Series", gross: 1450, fee: 58, status: "Paid" },
-  { id: "p4", date: "14 Jun 2026", event: "Yas Bass Sessions — Vol. 3", gross: 1900, fee: 76, status: "Paid" },
+  { id: "p1", date: shortDate(-41), event: "Corniche Sunset Sessions", gross: 2100, fee: 84, status: "Paid" },
+  { id: "p2", date: shortDate(-48), event: "Hangar Nights Vol. 4", gross: 2600, fee: 0, status: "Paid" },
+  { id: "p3", date: shortDate(-55), event: "Maryah Rooftop Series", gross: 1450, fee: 58, status: "Paid" },
+  { id: "p4", date: shortDate(-69), event: "Yas Bass Sessions — Vol. 3", gross: 1900, fee: 76, status: "Paid" },
 ];
 
 const SEED_PORTFOLIO = [
@@ -3176,7 +3209,7 @@ const SEED_PORTFOLIO = [
     id: "port1",
     event: "Corniche Sunset Sessions",
     venue: "Corniche Beach, Gate 2",
-    date: "12 Jul 2026",
+    date: shortDate(-41),
     crowd: 2300,
     topTrack: "Tideline",
     rating: 4.9,
@@ -3188,7 +3221,7 @@ const SEED_PORTFOLIO = [
     id: "port2",
     event: "Hangar Nights Vol. 4",
     venue: "KC Industrial Hangar 7",
-    date: "5 Jul 2026",
+    date: shortDate(-48),
     crowd: 3900,
     topTrack: "Concrete Bloom",
     rating: 5.0,
@@ -3200,7 +3233,7 @@ const SEED_PORTFOLIO = [
     id: "port3",
     event: "Maryah Rooftop Series",
     venue: "The Galleria Rooftop, Al Maryah",
-    date: "28 Jun 2026",
+    date: shortDate(-55),
     crowd: 1150,
     topTrack: "Nightfall Groove",
     rating: 4.8,
@@ -3212,7 +3245,7 @@ const SEED_PORTFOLIO = [
     id: "port4",
     event: "Yas Bass Sessions — Vol. 3",
     venue: "Etihad Park, Yas Island",
-    date: "14 Jun 2026",
+    date: shortDate(-69),
     crowd: 6200,
     topTrack: "Solar Drift (Original Mix)",
     rating: 4.9,
@@ -3227,7 +3260,7 @@ const SEED_BOOKINGS = [
     id: "book1",
     event: "Full Throttle Afterparty",
     venue: "Yas Marina, Trackside Deck",
-    date: "Sat, 25 Jul 2026",
+    date: eventDate(5),
     time: "22:00 - 04:00",
     payout: 3200,
     lat: 24.4593,
@@ -3237,7 +3270,7 @@ const SEED_BOOKINGS = [
     id: "book2",
     event: "Desert Bass Warehouse",
     venue: "KC Industrial Hangar 7",
-    date: "Fri, 31 Jul 2026",
+    date: eventDate(14),
     time: "21:00 - 03:00",
     payout: 2600,
     lat: 24.4203,
@@ -3250,7 +3283,7 @@ const SEED_REQUESTS = [
     id: "req1",
     event: "Corniche Beats Open-Air",
     venue: "Corniche Beach, Gate 2",
-    date: "Thu, 30 Jul 2026",
+    date: eventDate(13),
     time: "18:30 - 00:00",
     rate: 2400,
     note: "Closing set before the 400-drone light show.",
@@ -3261,7 +3294,7 @@ const SEED_REQUESTS = [
     id: "req2",
     event: "Amethyst Sky Lounge — Members Night",
     venue: "Level 32, Al Maryah Tower",
-    date: "Fri, 7 Aug 2026",
+    date: eventDate(25),
     time: "21:00 - 01:00",
     rate: 1600,
     note: "Resident DJ slot, 3-hour rooftop set.",
@@ -3271,9 +3304,9 @@ const SEED_REQUESTS = [
 ];
 
 const SEED_TIPS = [
-  { id: "t1", from: "Anonymous fan", amount: 50, note: "Amazing set at the hangar!", date: "6 Jul 2026" },
-  { id: "t2", from: "Layla A.", amount: 100, note: "Best night of the summer.", date: "5 Jul 2026" },
-  { id: "t3", from: "Anonymous fan", amount: 30, note: "That closing track though.", date: "29 Jun 2026" },
+  { id: "t1", from: "Anonymous fan", amount: 50, note: "Amazing set at the hangar!", date: shortDate(-47) },
+  { id: "t2", from: "Layla A.", amount: 100, note: "Best night of the summer.", date: shortDate(-48) },
+  { id: "t3", from: "Anonymous fan", amount: 30, note: "That closing track though.", date: shortDate(-54) },
 ];
 
 const COMMUNITY_VOTE = {
@@ -3286,8 +3319,8 @@ const COMMUNITY_VOTE = {
 };
 
 const HEADLINE_SLOTS = [
-  { id: "hs1", event: "Saadiyat Beach Club — New Year's Eve", venue: "Solace Beach Club, Saadiyat", date: "31 Dec 2026", rate: 5200 },
-  { id: "hs2", event: "Etihad Arena Takeover", venue: "Etihad Arena, Yas Bay", date: "12 Sep 2026", rate: 4600 },
+  { id: "hs1", event: "Saadiyat Beach Club — New Year's Eve", venue: "Solace Beach Club, Saadiyat", date: shortDate(131), rate: 5200 },
+  { id: "hs2", event: "Etihad Arena Takeover", venue: "Etihad Arena, Yas Bay", date: shortDate(21), rate: 4600 },
 ];
 
 const CREDIT_CATALOG = [
@@ -5863,17 +5896,24 @@ function ConsumerHub({ postedEvents = [], isActiveHub }) {
   const tabTouchStartRef = useRef(null);
   const handleTabTouchStart = useCallback((e) => {
     const t = e.touches[0];
-    tabTouchStartRef.current = { x: t.clientX, y: t.clientY };
+    tabTouchStartRef.current = {
+      x: t.clientX,
+      y: t.clientY,
+      /* Leaflet reads a horizontal drag as a pan, so a gesture that begins on
+      the map belongs to the map. One starting on the header, the filter chips
+      or the caption underneath is still a tab swipe — hence tracking where the
+      touch started rather than disabling the gesture for the whole Map tab. */
+      onMap: Boolean(t.target && t.target.closest && t.target.closest(".leaflet-container")),
+    };
   }, []);
   const handleTabTouchEnd = useCallback(
     (e) => {
       const start = tabTouchStartRef.current;
       tabTouchStartRef.current = null;
       if (!start) return;
-      /* The Map tab owns horizontal drag: panning Leaflet is the same
-      gesture as a tab swipe, so a pan would also cycle the tab out from
-      under the user. The bottom nav still switches tabs there. */
-      if (tab === "map") return;
+      /* Only the map itself claims the gesture; the rest of the Map tab
+      still swipes between tabs. */
+      if (start.onMap) return;
       const t = e.changedTouches[0];
       const dx = t.clientX - start.x;
       const dy = t.clientY - start.y;
@@ -6365,7 +6405,15 @@ function TalentHub({ postedEvents = [], isActiveHub }) {
   const tabTouchStartRef = useRef(null);
   const handleTabTouchStart = useCallback((e) => {
     const t = e.touches[0];
-    tabTouchStartRef.current = { x: t.clientX, y: t.clientY };
+    tabTouchStartRef.current = {
+      x: t.clientX,
+      y: t.clientY,
+      /* Leaflet reads a horizontal drag as a pan, so a gesture that begins on
+      the map belongs to the map. One starting on the header, the filter chips
+      or the caption underneath is still a tab swipe — hence tracking where the
+      touch started rather than disabling the gesture for the whole Map tab. */
+      onMap: Boolean(t.target && t.target.closest && t.target.closest(".leaflet-container")),
+    };
   }, []);
   const handleTabTouchEnd = useCallback(
     (e) => {
@@ -9863,13 +9911,6 @@ const AUTH_METHODS = [
     badge: "Recommended",
   },
   {
-    id: "web3",
-    title: "Web3 Wallet",
-    sub: "Connect a wallet for token-gated passes & collectibles",
-    icon: Wallet,
-    accent: C.amethyst,
-  },
-  {
     id: "email",
     title: "Email / Social",
     sub: "Google, Apple & email - one-tap sign in",
@@ -10912,6 +10953,93 @@ function AvatarImage({ src, alt, name, className, style }) {
   );
 }
 
+/* Swipeable card gallery.
+
+The detail sheets already let you page through an item's photos; the cards in
+the grid showed gallery[0] and nothing else, so the other three images were
+only reachable by opening the item first.
+
+Two details make this work inside a card that is itself a button:
+
+- A swipe must not also count as a tap. onClickCapture swallows the click that
+  follows a gesture, so paging photos never opens the detail sheet by accident.
+- touchend stops propagating, so a hub's swipe-to-change-tabs gesture does not
+  also fire when the swipe was meant for the photos.
+
+A tap with no horizontal travel still falls through to the card, so opening an
+item works exactly as before. */
+function CardGallery({ photos, iconSize = 44 }) {
+  const [index, setIndex] = useState(0);
+  const startRef = useRef(null);
+  const swipedRef = useRef(false);
+
+  const handleTouchStart = useCallback((e) => {
+    const t = e.touches[0];
+    startRef.current = { x: t.clientX, y: t.clientY };
+    swipedRef.current = false;
+  }, []);
+
+  const handleTouchEnd = useCallback(
+    (e) => {
+      const start = startRef.current;
+      startRef.current = null;
+      if (!start) return;
+      const t = e.changedTouches[0];
+      const dx = t.clientX - start.x;
+      const dy = t.clientY - start.y;
+      /* 40px rather than the 60px used for tab swipes: a card is a smaller
+      target, and the gesture is bounded by the card's own width. */
+      if (Math.abs(dx) < 40 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
+      e.stopPropagation();
+      swipedRef.current = true;
+      setIndex((i) => {
+        const next = dx < 0 ? i + 1 : i - 1;
+        if (next < 0) return 0;
+        if (next > photos.length - 1) return photos.length - 1;
+        return next;
+      });
+    },
+    [photos.length]
+  );
+
+  const handleClickCapture = useCallback((e) => {
+    if (!swipedRef.current) return;
+    swipedRef.current = false;
+    e.stopPropagation();
+    e.preventDefault();
+  }, []);
+
+  const photo = photos[index] || photos[0];
+
+  return (
+    <div
+      className="absolute inset-0"
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+      onClickCapture={handleClickCapture}
+    >
+      <div key={index} className="h-full w-full" style={{ animation: "vlFadeUp 0.3s ease" }}>
+        <GalleryVisual src={photo.src} icon={photo.icon} index={index} iconSize={iconSize} />
+      </div>
+
+      {photos.length > 1 ? (
+        <div className="absolute bottom-2 left-0 right-0 flex justify-center gap-1" style={{ zIndex: 5 }}>
+          {photos.map((_, i) => (
+            <span
+              key={i}
+              className="h-1 rounded-full transition-all"
+              style={{
+                width: i === index ? 16 : 6,
+                background: i === index ? C.emerald : "rgba(255,255,255,0.5)",
+              }}
+            />
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function GoldChip() {
   return (
     <span
@@ -11489,7 +11617,7 @@ function EventPreviewCard({ item, onGetPass, onOpenDetail }) {
         className="relative h-40 w-full overflow-hidden"
         style={{ backgroundImage: `linear-gradient(135deg, ${C.surfaceHi}, ${C.bg})` }}
       >
-        <GalleryVisual src={item.gallery[0].src} icon={item.gallery[0].icon} index={0} iconSize={44} />
+        <CardGallery photos={item.gallery} iconSize={44} />
         <div
           className="absolute inset-0"
           style={{ backgroundImage: "linear-gradient(to top, rgba(10,10,12,0.92), rgba(10,10,12,0.05) 55%)" }}
@@ -11640,7 +11768,7 @@ function SpotPreviewCard({ item, onSave, onClaim, onOpenDetail }) {
         className="relative h-40 w-full overflow-hidden"
         style={{ backgroundImage: `linear-gradient(135deg, ${C.surfaceHi}, ${C.bg})` }}
       >
-        <GalleryVisual src={item.gallery[0].src} icon={item.gallery[0].icon} index={0} iconSize={44} />
+        <CardGallery photos={item.gallery} iconSize={44} />
         <div
           className="absolute inset-0"
           style={{ backgroundImage: "linear-gradient(to top, rgba(10,10,12,0.92), rgba(10,10,12,0.05) 55%)" }}
