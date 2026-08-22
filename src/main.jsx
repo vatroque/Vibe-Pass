@@ -9863,13 +9863,6 @@ const AUTH_METHODS = [
     badge: "Recommended",
   },
   {
-    id: "web3",
-    title: "Web3 Wallet",
-    sub: "Connect a wallet for token-gated passes & collectibles",
-    icon: Wallet,
-    accent: C.amethyst,
-  },
-  {
     id: "email",
     title: "Email / Social",
     sub: "Google, Apple & email - one-tap sign in",
