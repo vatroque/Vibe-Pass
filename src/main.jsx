@@ -8955,7 +8955,13 @@ function PromoterHub({ postedEvents, onPostEvent, isActiveHub }) {
           ========================================================= */}
       {currentView === 'hub' && (
         <div
-          className="flex flex-1 max-w-md mx-auto flex-col justify-between overflow-y-auto vp-noscroll"
+          /* w-full is load-bearing: without an explicit width this flex column
+             sizes to its content, so a tab whose content is narrower than the
+             others — Profile, which is a centred avatar and a detail list —
+             shrank the whole shell and shifted every box on the screen. With
+             w-full the shell is always max-w-md wide and only the content
+             inside a tab changes. */
+          className="flex w-full flex-1 max-w-md mx-auto flex-col justify-between overflow-y-auto vp-noscroll"
           onTouchStart={handleHubTabTouchStart}
           onTouchEnd={handleHubTabTouchEnd}
         >
