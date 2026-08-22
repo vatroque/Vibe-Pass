@@ -283,6 +283,14 @@ function eventDate(days) {
   return `${WEEKDAY_NAMES[d.getDay()]}, ${d.getDate()} ${MONTH_NAMES[d.getMonth()]} ${d.getFullYear()}`;
 }
 
+/* "Fri, 24 Jul" - weekday and date without the year, for compact lists where
+   the year would be noise. The weekday is derived rather than written by hand,
+   so it always matches the date it sits next to. */
+function dayLabel(days) {
+  const d = offsetDate(days);
+  return `${WEEKDAY_NAMES[d.getDay()]}, ${d.getDate()} ${MONTH_NAMES[d.getMonth()]}`;
+}
+
 /* Same offset as a timestamp, for the few places that compare a date against
    "now" rather than printing it. */
 function offsetTime(days) {
@@ -10681,9 +10689,9 @@ const PREVIEW_ITEMS = [
     rating: "4.9",
     spotlight: "Headlining Neon Pulse Festival",
     nextDates: [
-      "Fri, 24 Jul - Yas Island",
-      "Fri, 31 Jul - Khalifa City",
-      "Sat, 8 Aug - Corniche",
+      `${dayLabel(34)} - Yas Island`,
+      `${dayLabel(96)} - Khalifa City`,
+      `${dayLabel(158)} - Corniche`,
     ],
     accent: C.emerald,
   },
@@ -10697,8 +10705,8 @@ const PREVIEW_ITEMS = [
     spotlight: "Resident at Kopi Roastery",
     nextDates: [
       "Daily - Al Reem Island",
-      "Sat, 25 Jul - Guest pour-over, Saadiyat",
-      "Sun, 2 Aug - Latte-art workshop",
+      `${dayLabel(62)} - Guest pour-over, Saadiyat`,
+      `${dayLabel(124)} - Latte-art workshop`,
     ],
     accent: C.gold,
   },
@@ -10711,9 +10719,9 @@ const PREVIEW_ITEMS = [
     rating: "4.7",
     spotlight: "Every Friday - Full Throttle Afterparty",
     nextDates: [
-      "Sat, 25 Jul - Yas Marina",
-      "Fri, 31 Jul - Khalifa City",
-      "Fri, 14 Aug - Yas Bay",
+      `${dayLabel(41)} - Yas Marina`,
+      `${dayLabel(103)} - Khalifa City`,
+      `${dayLabel(166)} - Yas Bay`,
     ],
     accent: C.amethyst,
   },
