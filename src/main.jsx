@@ -4087,13 +4087,21 @@ function ToggleSwitch({ checked, onChange }) {
     <button
       type="button"
       onClick={() => onChange(!checked)}
-      className="relative h-6 w-11 shrink-0 rounded-full transition-colors duration-200"
+      /* p-0 matters: a button carries user-agent padding, and the knob below is
+         positioned from its containing block, so that padding would offset the
+         travel. */
+      className="relative h-6 w-11 shrink-0 rounded-full p-0 transition-colors duration-200"
       style={{ background: checked ? C.emerald : C.line }}
       role="switch"
       aria-checked={checked}
     >
       <span
-        className="absolute top-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition-transform duration-200"
+        /* left-0 anchors the knob to the track's left edge. Without it the
+           element resolves to its static position, which a button's centred
+           text alignment and padding both shift — so translateX started from
+           the wrong origin and the knob sat off-centre, most visibly once
+           toggled on. 44px track - 20px knob - 2px inset = 22px of travel. */
+        className="absolute left-0 top-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition-transform duration-200"
         style={{ transform: checked ? "translateX(22px)" : "translateX(2px)" }}
       />
     </button>
