@@ -2022,14 +2022,7 @@ function FeedCard({ ev, onSelect }) {
           backgroundImage: `linear-gradient(135deg, ${C.surfaceHi}, ${C.bg})`,
         }}
       >
-        <img
-          src={ev.img}
-          alt={ev.title}
-          className="h-full w-full object-cover"
-          onError={(e) => {
-            e.currentTarget.style.opacity = "0";
-          }}
-        />
+        <CoverImage src={ev.img} alt={ev.title} accent={ev.accent} />
         <div
           className="absolute inset-0"
           style={{
@@ -2429,14 +2422,7 @@ function EventSheet({ event, onComplete, onGoWallet, onBook, onMenu, onClose }) 
               backgroundImage: `linear-gradient(135deg, ${C.surfaceHi}, ${C.bg})`,
             }}
           >
-            <img
-              src={event.img}
-              alt={event.title}
-              className="h-full w-full object-cover"
-              onError={(e) => {
-                e.currentTarget.style.opacity = "0";
-              }}
-            />
+            <CoverImage src={event.img} alt={event.title} accent={event.accent} />
             <div
               className="absolute inset-0"
               style={{
@@ -2784,14 +2770,7 @@ function TicketCard({ ticket }) {
           backgroundImage: `linear-gradient(135deg, ${C.surfaceHi}, ${C.bg})`,
         }}
       >
-        <img
-          src={ev.img}
-          alt={ev.title}
-          className="h-full w-full object-cover"
-          onError={(e) => {
-            e.currentTarget.style.opacity = "0";
-          }}
-        />
+        <CoverImage src={ev.img} alt={ev.title} accent={ev.accent} />
         <div
           className="absolute inset-0"
           style={{
@@ -2883,14 +2862,7 @@ function CompactTicket({ ticket, onOpen }) {
           backgroundImage: `linear-gradient(135deg, ${C.surfaceHi}, ${C.bg})`,
         }}
       >
-        <img
-          src={ev.img}
-          alt=""
-          className="h-full w-full object-cover"
-          onError={(e) => {
-            e.currentTarget.style.opacity = "0";
-          }}
-        />
+        <CoverImage src={ev.img} alt="" accent={ev.accent} />
       </div>
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-semibold" style={{ color: C.textHi }}>
@@ -4857,12 +4829,7 @@ function PortfolioCard({ card, onShare, hideActions }) {
       }}
     >
       <div className="relative h-36 w-full overflow-hidden">
-        <img
-          src={card.img}
-          alt={card.event}
-          className="h-full w-full object-cover"
-          onError={(e) => { e.currentTarget.style.opacity = "0"; }}
-        />
+        <CoverImage src={card.img} alt={card.event} accent={card.accent} />
         <div className="absolute inset-0" style={{ backgroundImage: "linear-gradient(to top, rgba(10,10,12,0.92), rgba(10,10,12,0.1) 60%)" }} />
         <div className="absolute top-2.5 right-2.5 flex items-center gap-1 rounded-full px-2 py-1" style={{ background: "rgba(10,10,12,0.75)" }}>
           <Sparkles size={10} color={C.gold} />
@@ -7759,9 +7726,10 @@ function TopSupporterCard({ supporter, rank, granting, onGrant }) {
     >
       <div className="flex items-center gap-3">
         <div className="relative shrink-0">
-          <img
+          <AvatarImage
             src={supporter.photo}
             alt={supporter.name}
+            name={supporter.name}
             className="w-12 h-12 rounded-full object-cover"
             style={{ border: `2px solid ${PC.border}` }}
           />
@@ -9261,9 +9229,10 @@ function PromoterHub({ postedEvents, onPostEvent, isActiveHub }) {
                       >
                         <div className="flex items-center gap-3">
                           <div className="relative shrink-0">
-                            <img
+                            <AvatarImage
                               src={a.photo}
                               alt={a.name}
+                              name={a.name}
                               className="w-14 h-14 rounded-full object-cover"
                               style={{ border: `2px solid ${PC.border}` }}
                             />
@@ -9440,9 +9409,10 @@ function PromoterHub({ postedEvents, onPostEvent, isActiveHub }) {
           {selectedApplicant && actionState !== 'success' && (
             <>
               <div className="flex items-center gap-3">
-                <img
+                <AvatarImage
                   src={selectedApplicant.photo}
                   alt={selectedApplicant.name}
+                  name={selectedApplicant.name}
                   className="w-16 h-16 rounded-full object-cover"
                   style={{ border: `2px solid ${PC.border}` }}
                 />
@@ -10852,6 +10822,92 @@ function GalleryVisual({ src, icon: Icon, index, iconSize = 56 }) {
         }}
       />
       <Icon size={iconSize} color="rgba(255,255,255,0.92)" strokeWidth={1.25} />
+    </div>
+  );
+}
+
+/* Image fallbacks.
+
+Remote imagery (Unsplash / Pexels) is fetched at runtime, so any of it can
+fail: a blocked host, a rate limit, an offline reviewer. GalleryVisual above
+already handles that for the landing-page previews; these two cover the hub
+surfaces, which previously either faded the broken image to transparent (the
+cover cards) or showed the browser's broken-image glyph (the avatars).
+
+Both keep the same shape and size as the image they replace, so a failure
+changes the texture of a card, never its layout. */
+function CoverImage({ src, alt, accent, className = "h-full w-full object-cover" }) {
+  const [failed, setFailed] = useState(false);
+  const tint = accent || C.amethyst;
+
+  if (src && !failed) {
+    return (
+      <img
+        src={src}
+        alt={alt}
+        className={className}
+        onError={() => setFailed(true)}
+      />
+    );
+  }
+
+  return (
+    <div
+      className="relative h-full w-full overflow-hidden"
+      style={{ backgroundImage: `linear-gradient(135deg, ${tint}, ${C.bg})` }}
+      aria-label={alt || undefined}
+      role={alt ? "img" : undefined}
+    >
+      <div
+        className="absolute inset-0"
+        style={{
+          backgroundImage: "radial-gradient(rgba(255,255,255,0.9) 1px, transparent 1px)",
+          backgroundSize: "20px 20px",
+          opacity: 0.1,
+        }}
+      />
+    </div>
+  );
+}
+
+/* Initials rather than a generic silhouette: a name is already on screen next
+   to every one of these, so the two reinforce each other. */
+function AvatarImage({ src, alt, name, className, style }) {
+  const [failed, setFailed] = useState(false);
+
+  if (src && !failed) {
+    return (
+      <img
+        src={src}
+        alt={alt}
+        className={className}
+        style={style}
+        onError={() => setFailed(true)}
+      />
+    );
+  }
+
+  const initials = String(name || alt || "")
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((w) => w[0].toUpperCase())
+    .join("");
+
+  return (
+    <div
+      className={`${className} flex items-center justify-center font-extrabold`}
+      style={{
+        ...style,
+        background: `linear-gradient(135deg, ${C.amethyst}33, ${C.emerald}33)`,
+        color: C.textHi,
+        fontSize: 13,
+        letterSpacing: 0.5,
+      }}
+      aria-label={alt || name || undefined}
+      role="img"
+    >
+      {initials || "\u2022"}
     </div>
   );
 }
