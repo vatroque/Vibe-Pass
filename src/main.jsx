@@ -9917,13 +9917,19 @@ function VibePassApp({ initialHub = "consumer" }) {
         <HubSwitcher activeHub={activeHub} onSwitch={requestHubSwitch} />
 
         <div className={activeHub === "consumer" ? "contents" : "hidden"}>
-          <ConsumerHub postedEvents={postedEvents} isActiveHub={activeHub === "consumer"} />
+          <AppErrorBoundary label="Fan Pass">
+            <ConsumerHub postedEvents={postedEvents} isActiveHub={activeHub === "consumer"} />
+          </AppErrorBoundary>
         </div>
         <div className={activeHub === "talent" ? "contents" : "hidden"}>
-          <TalentHub postedEvents={postedEvents} isActiveHub={activeHub === "talent"} />
+          <AppErrorBoundary label="Talent Pass">
+            <TalentHub postedEvents={postedEvents} isActiveHub={activeHub === "talent"} />
+          </AppErrorBoundary>
         </div>
         <div className={activeHub === "promoter" ? "contents" : "hidden"}>
-          <PromoterHub postedEvents={postedEvents} onPostEvent={addPostedEvent} isActiveHub={activeHub === "promoter"} />
+          <AppErrorBoundary label="Promoter">
+            <PromoterHub postedEvents={postedEvents} onPostEvent={addPostedEvent} isActiveHub={activeHub === "promoter"} />
+          </AppErrorBoundary>
         </div>
 
         {showSplash && <SplashScreen onFinish={dismissSplash} />}
@@ -13684,7 +13690,7 @@ class AppErrorBoundary extends React.Component {
     this.setState({ error: error, info: info });
     /* Left in deliberately: this is the only breadcrumb a tester can copy out
     of a deployed build when reporting a crash. */
-    console.error("Vibe Pass crashed:", error, info);
+    console.error(`Vibe Pass crashed${this.props.label ? ` in ${this.props.label}` : ""}:`, error, info);
   }
 
   handleReload() {
@@ -13716,11 +13722,12 @@ class AppErrorBoundary extends React.Component {
             className="mt-4 text-xl font-extrabold tracking-tight"
             style={{ color: C.textHi }}
           >
-            Something broke on this screen
+            {this.props.label ? `${this.props.label} hit an error` : "Something broke on this screen"}
           </h1>
           <p className="mt-2 text-sm leading-relaxed" style={{ color: C.textMid }}>
-            The rest of Vibe Pass is fine — this view hit an error and stopped
-            rather than leaving you on a blank page. Reloading usually clears it.
+            {this.props.label
+              ? "The other hubs are unaffected — switch tabs above to keep exploring, or reload to try this one again."
+              : "This view hit an error and stopped rather than leaving you on a blank page. Reloading usually clears it."}
           </p>
 
           <button
