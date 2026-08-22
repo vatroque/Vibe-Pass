@@ -10953,7 +10953,7 @@ function Wordmark({ size = "text-lg" }) {
 }
 
 /* Signature element: a slow "live verification" ticker dramatising the
-   compliance + token-gated fintech story in one glanceable device. */
+   compliance + verified-entry story in one glanceable device. */
 function VerificationTicker() {
   const doubled = [...TICKER_ITEMS, ...TICKER_ITEMS];
   return (
@@ -11304,7 +11304,7 @@ function HeroSection({
             ? "Verify your Talent Pass, manage your guestlist and get paid on time - built on the same escrow-secured, DCT-compliant rails as the Vibe Pass consumer app."
             : heroVariant === "promoter"
             ? "Register your DCT-verified venue, post events in under a minute, and staff open shifts with MoHRE-checked talent - all on the same escrow-secured rails as the rest of Vibe Pass."
-            : "A single, token-gated pass for every ticket, table and experience across the capital - seamless digital assets, instant verify-at-door entry, zero paper."}
+            : "A single verified pass for every ticket, table and experience across the capital - AED payments, instant verify-at-door entry, zero paper."}
         </p>
         {heroVariant === "discover" ? (
           <>
