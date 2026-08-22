@@ -119,7 +119,13 @@ const C = {
   bg: "#0A0A0C",
   surface: "#111318",
   surfaceHi: "#171A21",
-  line: "#23262F",
+  /* Lifted from #23262F. At that value an outline was barely a shade above
+     the surface it sat on, so panels read as floating shapes rather than
+     defined boxes. This is the single highest-leverage colour in the app:
+     140 call sites reference it, so every card, sheet and input gains a
+     visible edge from one change. Still neutral-cool — it defines shape
+     without competing with the emerald and amethyst accents. */
+  line: "#343A4D",
   textHi: "#F5F6F8",
   textMid: "#9CA3AF",
   textLo: "#6B7280",
@@ -6735,7 +6741,9 @@ const PC = {
   bg: '#0A0A0C', // Midnight Obsidian
   surface: '#131316',
   surfaceAlt: '#18181C',
-  border: '#26262C',
+  /* Kept in step with C.line above — the promoter hub is the same product
+     and looked flatter than the rest once the others gained an edge. */
+  border: '#383842',
   emerald: '#22C55E', // Electric Emerald
   amethyst: '#A855F7', // Neon Amethyst
 };
