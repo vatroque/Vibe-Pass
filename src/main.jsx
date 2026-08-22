@@ -1561,6 +1561,7 @@ const DiscoveryMap = forwardRef(function DiscoveryMap(
       .filter(Boolean);
   }, [map, viewTick, visibleEvents]);
 
+  const searchVisible = showSearch || searching;
   const zoomLabel = map ? map.getZoom().toFixed(2) : "--";
   const zoomedIn = map ? map.getZoom() > BASE_ZOOM + 0.6 : false;
 
@@ -1682,14 +1683,25 @@ const DiscoveryMap = forwardRef(function DiscoveryMap(
         {visibleEvents.length} in view DCT verified
       </div>
 
-      {(showSearch || searching) && (
-        <button
+      {/* Rendered unconditionally and hidden with CSS rather than mounted and
+      unmounted. Removing this node mid-interaction produced a NotFoundError
+      ("the node to be removed is not a child of this node") on Firefox when
+      "Search this area" was tapped — React's removal raced something else
+      touching the subtree. Keeping the element alive removes that race
+      entirely, and an always-mounted button also avoids the layout shift that
+      made the ResizeObserver re-measure the map on every appearance. */}
+      <button
           onClick={onSearchArea}
-          disabled={searching}
+          disabled={searching || !searchVisible}
+          aria-hidden={!searchVisible}
           className="absolute top-14 flex items-center gap-2 rounded-full px-4 py-2.5 text-xs font-bold transition-transform active:scale-95"
           style={{
             left: "50%",
             zIndex: 1000,
+            opacity: searchVisible ? 1 : 0,
+            visibility: searchVisible ? "visible" : "hidden",
+            pointerEvents: searchVisible ? "auto" : "none",
+            transition: "opacity 0.18s ease",
             background: "rgba(10,10,12,0.94)",
             border: `1.5px solid ${C.emerald}`,
             color: C.textHi,
@@ -1722,7 +1734,6 @@ const DiscoveryMap = forwardRef(function DiscoveryMap(
             </>
           )}
         </button>
-      )}
     </div>
   );
 });
@@ -10968,7 +10979,7 @@ Two details make this work inside a card that is itself a button:
 
 A tap with no horizontal travel still falls through to the card, so opening an
 item works exactly as before. */
-function CardGallery({ photos, iconSize = 44 }) {
+function CardGallery({ photos, iconSize = 44, children }) {
   const [index, setIndex] = useState(0);
   const startRef = useRef(null);
   const swipedRef = useRef(false);
@@ -11021,6 +11032,12 @@ function CardGallery({ photos, iconSize = 44 }) {
       <div key={index} className="h-full w-full" style={{ animation: "vlFadeUp 0.3s ease" }}>
         <GalleryVisual src={photo.src} icon={photo.icon} index={index} iconSize={iconSize} />
       </div>
+
+      {/* Any scrim the card wants sits here: above the photo, below the dots,
+      and — critically — inside this element rather than as a sibling. A
+      sibling overlay painted on top would receive every touch, and since it
+      is not a descendant the gesture handlers below would never see them. */}
+      {children}
 
       {photos.length > 1 ? (
         <div className="absolute bottom-2 left-0 right-0 flex justify-center gap-1" style={{ zIndex: 5 }}>
@@ -11617,11 +11634,12 @@ function EventPreviewCard({ item, onGetPass, onOpenDetail }) {
         className="relative h-40 w-full overflow-hidden"
         style={{ backgroundImage: `linear-gradient(135deg, ${C.surfaceHi}, ${C.bg})` }}
       >
-        <CardGallery photos={item.gallery} iconSize={44} />
-        <div
-          className="absolute inset-0"
-          style={{ backgroundImage: "linear-gradient(to top, rgba(10,10,12,0.92), rgba(10,10,12,0.05) 55%)" }}
-        />
+        <CardGallery photos={item.gallery} iconSize={44}>
+          <div
+            className="pointer-events-none absolute inset-0"
+            style={{ backgroundImage: "linear-gradient(to top, rgba(10,10,12,0.92), rgba(10,10,12,0.05) 55%)" }}
+          />
+        </CardGallery>
         <span
           className="absolute top-3 left-3 rounded-full px-2.5 py-1 text-xs font-bold uppercase"
           style={{ background: "rgba(10,10,12,0.85)", border: `1px solid ${item.accent}`, color: item.accent, letterSpacing: 1 }}
@@ -11768,11 +11786,12 @@ function SpotPreviewCard({ item, onSave, onClaim, onOpenDetail }) {
         className="relative h-40 w-full overflow-hidden"
         style={{ backgroundImage: `linear-gradient(135deg, ${C.surfaceHi}, ${C.bg})` }}
       >
-        <CardGallery photos={item.gallery} iconSize={44} />
-        <div
-          className="absolute inset-0"
-          style={{ backgroundImage: "linear-gradient(to top, rgba(10,10,12,0.92), rgba(10,10,12,0.05) 55%)" }}
-        />
+        <CardGallery photos={item.gallery} iconSize={44}>
+          <div
+            className="pointer-events-none absolute inset-0"
+            style={{ backgroundImage: "linear-gradient(to top, rgba(10,10,12,0.92), rgba(10,10,12,0.05) 55%)" }}
+          />
+        </CardGallery>
         <span
           className="absolute top-3 left-3 rounded-full px-2.5 py-1 text-xs font-bold uppercase"
           style={{ background: "rgba(10,10,12,0.85)", border: `1px solid ${item.accent}`, color: item.accent, letterSpacing: 1 }}
