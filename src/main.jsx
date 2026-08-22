@@ -277,6 +277,12 @@ function eventDate(days) {
   return `${WEEKDAY_NAMES[d.getDay()]}, ${d.getDate()} ${MONTH_NAMES[d.getMonth()]} ${d.getFullYear()}`;
 }
 
+/* Same offset as a timestamp, for the few places that compare a date against
+   "now" rather than printing it. */
+function offsetTime(days) {
+  return Date.now() + days * DAY_MS;
+}
+
 /* "4 Sep 2026" */
 function shortDate(days) {
   const d = offsetDate(days);
@@ -2058,7 +2064,14 @@ function FeedCard({ ev, onSelect }) {
     <button
       onClick={() => onSelect(ev)}
       className="relative w-full overflow-hidden rounded-3xl border text-left transition-transform active:scale-95"
-      style={{ borderColor: C.line, background: C.surface }}
+      /* Each event already carries an accent used by its tag and pin; reusing
+         it here colours the whole feed without inventing a new palette. The
+         alpha keeps it a tint rather than an outline. */
+      style={{
+        borderColor: `${ev.accent}59`,
+        background: C.surface,
+        boxShadow: `0 6px 20px rgba(0,0,0,0.35), 0 0 18px ${ev.accent}1F`,
+      }}
     >
       <div
         className="relative h-40 w-full overflow-hidden"
@@ -3272,6 +3285,7 @@ const SEED_BOOKINGS = [
     event: "Full Throttle Afterparty",
     venue: "Yas Marina, Trackside Deck",
     date: eventDate(5),
+    startsAt: offsetTime(5),
     time: "22:00 - 04:00",
     payout: 3200,
     lat: 24.4593,
@@ -3282,6 +3296,7 @@ const SEED_BOOKINGS = [
     event: "Desert Bass Warehouse",
     venue: "KC Industrial Hangar 7",
     date: eventDate(14),
+    startsAt: offsetTime(14),
     time: "21:00 - 03:00",
     payout: 2600,
     lat: 24.4203,
@@ -3419,10 +3434,20 @@ function monthsSince(iso) {
   return Math.max(0, months);
 }
 
+/* The accent bar is the cheapest way to get the palette onto every section
+   heading in the app: six call sites, one rule, and headings stop reading as
+   plain bold text on a flat surface. */
 function SectionTitle({ children, right }) {
   return (
     <div className="flex items-center justify-between mb-2.5">
-      <h2 className="text-base font-bold" style={{ color: C.textHi }}>{children}</h2>
+      <h2 className="flex items-center gap-2 text-base font-bold" style={{ color: C.textHi }}>
+        <span
+          aria-hidden="true"
+          className="inline-block h-4 w-1 rounded-full"
+          style={{ backgroundImage: `linear-gradient(180deg, ${C.emerald}, ${C.amethyst})` }}
+        />
+        {children}
+      </h2>
       {right}
     </div>
   );
@@ -4884,22 +4909,37 @@ function PortfolioCard({ card, onShare, hideActions }) {
           <p className="text-xs" style={{ color: C.textMid }}>{card.venue}</p>
         </div>
       </div>
-      <div className="grid grid-cols-3 gap-2 p-3.5">
-        <div className="text-center">
-          <p className="flex items-center justify-center gap-1 text-sm font-bold" style={{ color: C.textHi }}>
-            <Users size={11} color={C.textLo} />{card.crowd.toLocaleString()}
-          </p>
-          <p className="text-xs" style={{ color: C.textLo }}>Crowd</p>
+      {card.awaitingRecap ? (
+        /* A gig that has just finished has no crowd count, rating or top track
+        yet — those arrive with the venue's recap. Saying so is more honest than
+        rendering zeroes, and it explains why the card looks different. */
+        <div className="flex items-center gap-2 p-3.5">
+          <Clock size={13} color={C.gold} />
+          <div className="min-w-0">
+            <p className="text-xs font-bold" style={{ color: C.textHi }}>Recap pending</p>
+            <p className="text-xs" style={{ color: C.textMid }}>
+              Crowd, rating and top track land once the venue files its report.
+            </p>
+          </div>
         </div>
-        <div className="border-x px-1 text-center" style={{ borderColor: C.line }}>
-          <p className="truncate text-sm font-bold" style={{ color: C.textHi }}>{card.topTrack}</p>
-          <p className="text-xs" style={{ color: C.textLo }}>Top Track</p>
+      ) : (
+        <div className="grid grid-cols-3 gap-2 p-3.5">
+          <div className="text-center">
+            <p className="flex items-center justify-center gap-1 text-sm font-bold" style={{ color: C.textHi }}>
+              <Users size={11} color={C.textLo} />{card.crowd.toLocaleString()}
+            </p>
+            <p className="text-xs" style={{ color: C.textLo }}>Crowd</p>
+          </div>
+          <div className="border-x px-1 text-center" style={{ borderColor: C.line }}>
+            <p className="truncate text-sm font-bold" style={{ color: C.textHi }}>{card.topTrack}</p>
+            <p className="text-xs" style={{ color: C.textLo }}>Top Track</p>
+          </div>
+          <div className="text-center">
+            <p className="text-sm font-bold" style={{ color: C.gold }}>{card.rating.toFixed(1)}&#9733;</p>
+            <p className="text-xs" style={{ color: C.textLo }}>Rating</p>
+          </div>
         </div>
-        <div className="text-center">
-          <p className="text-sm font-bold" style={{ color: C.gold }}>{card.rating.toFixed(1)}&#9733;</p>
-          <p className="text-xs" style={{ color: C.textLo }}>Rating</p>
-        </div>
-      </div>
+      )}
       <div className="flex items-center justify-between px-3.5 pb-3.5">
         <span className="text-xs" style={{ color: C.textLo }}>{card.date}</span>
         {!hideActions && (
@@ -6151,6 +6191,52 @@ function TalentHub({ postedEvents = [], isActiveHub }) {
   const [epk, setEpk] = useState(INITIAL_EPK);
   const [portfolio] = useState(SEED_PORTFOLIO);
 
+  /* A gig that has already happened is no longer a booking. Bookings carry a
+     startsAt timestamp so the split is by real elapsed time rather than by the
+     printed string, and a finished one moves into the portfolio as proof of
+     performance.
+
+     Its crowd, rating and top track are deliberately absent rather than
+     invented: those numbers arrive after the event, so the card shows a recap
+     pending state until they do.
+
+     In practice the seeded bookings are generated a few days ahead of load and
+     will not lapse inside a session. This exists so the hub behaves correctly
+     whenever it is given a booking that has, rather than showing a past date
+     under "Upcoming". */
+  /* "Now" is state on a one-minute tick rather than a Date.now() call during
+     render: reading the clock while rendering is impure, and it would also
+     freeze the split until `bookings` happened to change. */
+  const [nowTs, setNowTs] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNowTs(Date.now()), 60000);
+    return () => clearInterval(id);
+  }, []);
+
+  const upcomingBookings = useMemo(
+    () => bookings.filter((b) => !b.startsAt || b.startsAt >= nowTs),
+    [bookings, nowTs]
+  );
+  const completedBookings = useMemo(
+    () =>
+      bookings
+        .filter((b) => b.startsAt && b.startsAt < nowTs)
+        .map((b) => ({
+          id: `recap-${b.id}`,
+          event: b.event,
+          venue: b.venue,
+          date: b.date,
+          lat: b.lat,
+          lng: b.lng,
+          awaitingRecap: true,
+        })),
+    [bookings, nowTs]
+  );
+  const portfolioCards = useMemo(
+    () => [...completedBookings, ...portfolio],
+    [completedBookings, portfolio]
+  );
+
   /* ---- derived values ---- */
   const distinctVenues = workedVenues.length;
   const freeAgentUnlocked = distinctVenues >= MILESTONE_TARGETS.independentAgentVenues;
@@ -6506,7 +6592,7 @@ function TalentHub({ postedEvents = [], isActiveHub }) {
               />
             )}
             {activeTab === "bookings" && (
-              <BookingsView requests={gigRequests} bookings={bookings} onAccept={handleAcceptRequest} onDecline={handleDeclineRequest} />
+              <BookingsView requests={gigRequests} bookings={upcomingBookings} onAccept={handleAcceptRequest} onDecline={handleDeclineRequest} />
             )}
             {activeTab === "portfolio" && (
               <PortfolioView
@@ -6515,7 +6601,7 @@ function TalentHub({ postedEvents = [], isActiveHub }) {
                 onToggleGenre={handleEpkToggleGenre}
                 onSaveEpk={handleSaveEpk}
                 freeAgentUnlocked={freeAgentUnlocked}
-                portfolio={portfolio}
+                portfolio={portfolioCards}
                 onShareCard={handleShareCard}
               />
             )}
@@ -6929,7 +7015,12 @@ function HubTabs({ value, onChange }) {
             role="tab"
             aria-selected={active}
             onClick={() => onChange(tab.id)}
-            className={`flex-1 truncate rounded-xl py-2 text-xs font-bold uppercase tracking-wide transition-all active:scale-95 ${active ? '' : 'text-neutral-500'} ${FOCUS_RING}`}
+            /* Four equal columns on a ~390px screen leave roughly 90px each,
+               and "TALENT SEARCH" did not fit at text-xs with wide tracking,
+               so `truncate` was clipping it. Dropping a step in size and
+               tracking makes the longest label fit; `truncate` is gone so a
+               label can never silently lose characters again. */
+            className={`flex-1 rounded-xl px-1 py-2 text-[10px] font-bold uppercase leading-tight transition-all active:scale-95 ${active ? '' : 'text-neutral-500'} ${FOCUS_RING}`}
             style={
               active
                 ? { backgroundColor: 'rgba(168,85,247,0.14)', color: PC.amethyst, border: `1px solid ${PC.amethyst}` }
@@ -11531,38 +11622,16 @@ function HeroSection({
                 </div>
               )}
               {tutorialStep === 1 && (
-                <div
-                  className="absolute left-1/2 top-full mt-3 w-64 -translate-x-1/2 rounded-2xl border p-4 text-center"
-                  style={{ background: C.surface, borderColor: C.line, zIndex: 1801, boxShadow: "0 12px 32px rgba(0,0,0,0.6)" }}
-                >
-                  <p className="text-xs font-bold uppercase" style={{ color: C.emerald, letterSpacing: 1 }}>
-                    Step 1 of 3
-                  </p>
-                  <p className="mt-1.5 text-sm font-semibold" style={{ color: C.textHi }}>
-                    Tap the search bar
-                  </p>
-                  <p className="mt-1 text-xs" style={{ color: C.textMid }}>
-                    Search real events, venues and more - or just browse what&apos;s trending below.
-                  </p>
-                  <div className="mt-3 flex items-center justify-between gap-2">
-                    <button
-                      type="button"
-                      onClick={onSkipTutorial}
-                      className={`text-xs font-semibold ${focusRing}`}
-                      style={{ color: C.textLo }}
-                    >
-                      Skip
-                    </button>
-                    <button
-                      type="button"
-                      onClick={onAdvanceTutorial}
-                      className={`rounded-full px-4 py-1.5 text-xs font-bold transition-transform active:scale-95 ${focusRing}`}
-                      style={{ background: C.emerald, color: "#052E16" }}
-                    >
-                      Next
-                    </button>
-                  </div>
-                </div>
+                <TutorialCallout
+                  step={1}
+                  accent={C.emerald}
+                  accentInk="#052E16"
+                  title="Tap the search bar"
+                  body="Search real events, venues and more - or just browse what's trending below."
+                  onSkip={onSkipTutorial}
+                  onNext={onAdvanceTutorial}
+                  className="absolute left-1/2 top-full mt-3 w-64 -translate-x-1/2"
+                />
               )}
             </div>
             <div className="mx-auto mt-4 flex max-w-2xl flex-wrap items-center justify-center gap-2">
@@ -11860,6 +11929,114 @@ const TRENDING_VIEW_ORDER = [
   { id: "upcoming", label: "Upcoming" },
 ];
 
+/* Tutorial callout.
+
+Steps 1 and 2 previously duplicated this markup, and both suffered the same
+problem in testing: "Skip" was bare text with no border, so it did not read as
+a control at all, and nothing in the box indicated which element it referred
+to.
+
+Three things fix that, in order of how much they help:
+
+- A caret pointing at the element the step is about, so the box is visibly
+  attached to the search bar or the module rather than floating.
+- An arrow on the primary action. "Next >" is unambiguous in a way that a bare
+  word is not, and the filled accent plus glow makes it the obvious target.
+- "Skip" gets a real border, so both options read as buttons while the accent
+  fill still marks which one moves forward.
+
+Progress is shown as dots as well as text, which reads faster than "Step 2
+of 3" alone. */
+function TutorialCallout({
+  step,
+  total = 3,
+  accent,
+  accentInk,
+  title,
+  body,
+  onSkip,
+  onNext,
+  nextLabel = "Next",
+  className = "",
+  style = {},
+}) {
+  return (
+    <div
+      className={`relative rounded-2xl border p-4 text-center ${className}`}
+      style={{
+        background: C.surface,
+        borderColor: `${accent}66`,
+        zIndex: 1801,
+        boxShadow: `0 12px 32px rgba(0,0,0,0.6), 0 0 22px ${accent}26`,
+        ...style,
+      }}
+    >
+      {/* Caret: a rotated square sharing the box's fill and border, so it reads
+      as part of the same surface rather than a separate shape. */}
+      <span
+        aria-hidden="true"
+        className="absolute left-1/2 h-3 w-3 -translate-x-1/2 rotate-45"
+        style={{
+          top: -7,
+          background: C.surface,
+          borderLeft: `1px solid ${accent}66`,
+          borderTop: `1px solid ${accent}66`,
+          borderTopLeftRadius: 3,
+        }}
+      />
+
+      <div className="flex items-center justify-center gap-2">
+        <span className="flex items-center gap-1">
+          {Array.from({ length: total }).map((_, i) => (
+            <span
+              key={i}
+              className="h-1.5 rounded-full transition-all"
+              style={{
+                width: i === step - 1 ? 14 : 5,
+                background: i === step - 1 ? accent : "rgba(255,255,255,0.22)",
+              }}
+            />
+          ))}
+        </span>
+        <span className="text-xs font-bold uppercase" style={{ color: accent, letterSpacing: 1 }}>
+          Step {step} of {total}
+        </span>
+      </div>
+
+      <p className="mt-2 text-sm font-semibold" style={{ color: C.textHi }}>
+        {title}
+      </p>
+      <p className="mt-1 text-xs" style={{ color: C.textMid }}>
+        {body}
+      </p>
+
+      <div className="mt-3.5 flex items-center justify-between gap-2">
+        <button
+          type="button"
+          onClick={onSkip}
+          className={`rounded-full px-3.5 py-1.5 text-xs font-semibold transition-transform active:scale-95 ${focusRing}`}
+          style={{ border: `1px solid ${C.line}`, color: C.textMid, background: "transparent" }}
+        >
+          Skip
+        </button>
+        <button
+          type="button"
+          onClick={onNext}
+          className={`flex items-center gap-1 rounded-full px-4 py-1.5 text-xs font-bold transition-transform active:scale-95 ${focusRing}`}
+          style={{
+            background: accent,
+            color: accentInk,
+            boxShadow: `0 0 16px ${accent}66`,
+          }}
+        >
+          {nextLabel}
+          <ChevronRight size={14} />
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function TrendingModule({ items, onGetPass, onOpenDetail, tutorialStep, onAdvanceTutorial, onSkipTutorial }) {
   const [trendingView, setTrendingView] = useState("today");
   const touchStartRef = useRef(null);
@@ -11957,38 +12134,16 @@ function TrendingModule({ items, onGetPass, onOpenDetail, tutorialStep, onAdvanc
         </div>
 
         {tutorialStep === 2 && (
-          <div
-            className="relative mx-auto mt-3 w-64 rounded-2xl border p-4 text-center sm:ml-auto sm:mr-0"
-            style={{ background: C.surface, borderColor: C.line, zIndex: 1801, boxShadow: "0 12px 32px rgba(0,0,0,0.6)" }}
-          >
-            <p className="text-xs font-bold uppercase" style={{ color: C.amethyst, letterSpacing: 1 }}>
-              Step 2 of 3
-            </p>
-            <p className="mt-1.5 text-sm font-semibold" style={{ color: C.textHi }}>
-              Swipe Today / Upcoming
-            </p>
-            <p className="mt-1 text-xs" style={{ color: C.textMid }}>
-              Swipe left or right on this module - or tap the pill above - to see what&apos;s trending right now versus what&apos;s coming up.
-            </p>
-            <div className="mt-3 flex items-center justify-between gap-2">
-              <button
-                type="button"
-                onClick={onSkipTutorial}
-                className={`text-xs font-semibold ${focusRing}`}
-                style={{ color: C.textLo }}
-              >
-                Skip
-              </button>
-              <button
-                type="button"
-                onClick={onAdvanceTutorial}
-                className={`rounded-full px-4 py-1.5 text-xs font-bold transition-transform active:scale-95 ${focusRing}`}
-                style={{ background: C.amethyst, color: "#1A0B2E" }}
-              >
-                Next
-              </button>
-            </div>
-          </div>
+          <TutorialCallout
+            step={2}
+            accent={C.amethyst}
+            accentInk="#1A0B2E"
+            title="Swipe Today / Upcoming"
+            body="Swipe left or right on this module - or tap the pill above - to see what's trending right now versus what's coming up."
+            onSkip={onSkipTutorial}
+            onNext={onAdvanceTutorial}
+            className="mx-auto mt-3 w-64 sm:ml-auto sm:mr-0"
+          />
         )}
 
         <div onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd} className="mt-6">
