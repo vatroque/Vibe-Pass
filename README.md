@@ -44,10 +44,15 @@ Vibe-Pass/
 │   │                           data and the createRoot mount
 │   └── index.css               Tailwind directives + base document styling
 ├── public/
-│   └── favicon.svg             Copied to the build output verbatim
-├── vite.config.js              Build config — see "Before your first deploy"
+│   ├── favicon.svg             Copied to the build output verbatim
+│   └── _headers                Cloudflare response headers (inert on Pages)
+├── vite.config.js              Build config — see "Deploying"
+├── vite.cloudflare.config.js   Same build at base "/" for Cloudflare
+├── wrangler.jsonc              Cloudflare assets-only Worker
 ├── tailwind.config.js          Palette and typeface tokens
-└── .github/workflows/deploy.yml
+└── .github/workflows/
+    ├── deploy.yml              -> GitHub Pages
+    └── deploy-cloudflare.yml   -> Cloudflare Workers
 ```
 
 `src/main.jsx` is a single large module (~13,000 lines) carrying every
@@ -58,30 +63,72 @@ delivered.
 
 ---
 
-## Before your first deploy
+## Deploying
 
-**Set the base path.** Open `vite.config.js` and edit one line:
+The app ships to two targets. They differ in exactly one thing — the URL the
+site is served from — which determines both Vite's `base` and the absolute
+canonical / `og:url` tags written into `index.html`. `vite.config.js` derives
+both from a single value so they cannot drift apart.
 
-```js
-const BASE = "/Vibe-Pass/";   // <- change this
+| Target | Command | `base` | Workflow |
+|---|---|---|---|
+| GitHub Pages (default) | `npm run build` | `/Vibe-Pass/` | `.github/workflows/deploy.yml` |
+| Cloudflare Workers | `npm run cf:build` | `/` | `.github/workflows/deploy-cloudflare.yml` |
+
+Both workflows trigger on pushes to `main` and can be run manually from the
+Actions tab. They deploy independently — neither cancels the other.
+
+### GitHub Pages
+
+**Base path.** `GITHUB_PAGES_URL` in `vite.config.js` is the project site URL;
+its pathname becomes `base`. Getting it wrong produces a blank page with 404s
+on every asset — the single most common deployment failure for this setup.
+
+**Pages source.** `deploy.yml` runs `actions/configure-pages` with
+`enablement: true`, which pins the Pages build type to *GitHub Actions*. This is
+deliberate: under the legacy branch-based source, Pages would publish the
+repository root verbatim, and the root `index.html` points at `/src/main.jsx` —
+uncompiled JSX that no browser can execute. Only the compiled `dist/` output is
+ever publishable.
+
+### Cloudflare Workers
+
+Served as an **assets-only Worker** — `wrangler.jsonc` declares no `main`, so
+there is no server-side code and Cloudflare serves `dist/` straight from its
+edge. `not_found_handling` is `single-page-application`, which returns
+`index.html` with a 200 for any unmatched path, so a refresh or a shared deep
+link loads the app instead of a 404.
+
+```bash
+npm run cf:dev       # build, then serve on workerd locally at :8787
+npm run cf:deploy    # build, then deploy to production
+npm run cf:preview   # build, then upload a preview version (no production traffic)
 ```
 
-| Deploy target | Value |
+**One-time setup.** Two repository secrets are required for CI
+(*Settings → Secrets and variables → Actions*):
+
+| Secret | Where it comes from |
 |---|---|
-| GitHub Pages project site — `https://<user>.github.io/<repo>/` | `"/<repo>/"` |
-| Custom domain or user site — `https://vibepass.ae/` | `"/"` |
+| `CLOUDFLARE_API_TOKEN` | Cloudflare dashboard → My Profile → API Tokens → *Edit Cloudflare Workers* template |
+| `CLOUDFLARE_ACCOUNT_ID` | Cloudflare dashboard → Workers & Pages → right-hand sidebar |
 
-Getting this wrong produces a blank page with 404s on every asset. It is the single most common deployment failure for this setup.
+Locally, `npx wrangler login` covers both instead.
 
-**Pages source.** `.github/workflows/deploy.yml` runs `actions/configure-pages`
-with `enablement: true`, which pins the Pages build type to *GitHub Actions*.
-This is deliberate: under the legacy branch-based source, Pages would publish
-the repository root verbatim, and the root `index.html` points at
-`/src/main.jsx` — uncompiled JSX that no browser can execute. Only the
-compiled `dist/` output is ever publishable.
+**Set `SITE_URL` after the first deploy.** The first `cf:deploy` prints the
+live URL (`https://vibe-pass.<your-subdomain>.workers.dev`). Add it — or the
+custom domain, once one is attached in *Workers & Pages → Settings → Domains
+& Routes* — as a repository **variable** named `SITE_URL`, including the
+trailing slash. Until then the canonical and `og:url` tags fall back to `/`,
+which resolves correctly in a browser but gives social scrapers no absolute URL
+to work with. Asset loading does not depend on it.
 
-Pushing to `main` builds and deploys automatically. The workflow can also be
-run manually from the Actions tab (`workflow_dispatch`).
+**Response headers** live in `public/_headers`: `nosniff`,
+`strict-origin-when-cross-origin`, and `X-Frame-Options: DENY` everywhere, plus
+a one-year `immutable` cache for `/assets/*`, whose filenames carry a content
+hash. Wrangler consumes the file at deploy time rather than publishing it.
+GitHub Pages has no equivalent mechanism and never interprets it, so the Pages
+deploy behaves exactly as it did before.
 
 ---
 

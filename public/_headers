@@ -1,0 +1,21 @@
+# Response headers applied by Cloudflare Workers static assets.
+#
+# Vite copies this file verbatim into dist/, where Wrangler consumes it at
+# deploy time — it is interpreted, not served as a public file. GitHub Pages has
+# no equivalent mechanism and never interprets it; the Pages build just carries
+# it along as an inert text file, so that deploy is unaffected either way.
+
+/*
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  # The app gates Auth/KYC flows, so it should never render inside someone
+  # else's frame. Relax to SAMEORIGIN if the demo ever needs embedding.
+  X-Frame-Options: DENY
+
+# Everything under assets/ carries a content hash in its filename, so a changed
+# file is a changed URL and can never be served stale. Without this rule Workers
+# defaults to `max-age=0, must-revalidate`, costing a revalidation round-trip
+# per asset per visit. index.html is deliberately excluded — it is the one file
+# whose URL is stable and whose contents change every deploy.
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable

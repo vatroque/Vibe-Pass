@@ -1,0 +1,51 @@
+name: Deploy to Cloudflare Workers
+
+on:
+  push:
+    branches: 'main'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Deploys to a single Worker, so overlapping runs would race each other.
+# Unlike the Pages workflow this uses its own group, letting the two targets
+# deploy in parallel rather than cancelling one another.
+concurrency:
+  group: 'cloudflare-workers'
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Builds with base "/" instead of the "/Vibe-Pass/" that Pages needs.
+      # SITE_URL is an optional repository variable naming the origin actually
+      # serving the site; it is what index.html's canonical and og:url tags are
+      # rewritten to. Unset, they fall back to "/" — see
+      # vite.cloudflare.config.js.
+      - name: Build
+        run: npm run cf:build
+        env:
+          SITE_URL: ${{ vars.SITE_URL }}
+
+      - name: Deploy
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          # dist/ is already built above; deploy must not rebuild it with the
+          # wrong base path.
+          command: deploy

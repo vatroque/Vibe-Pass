@@ -1,0 +1,25 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+
+  // Vibe Pass is a static single-page application: there is no server-side
+  // code, so this is an assets-only Worker (no "main" entry point). Cloudflare
+  // serves dist/ directly from its edge network.
+  "name": "vibe-pass",
+  "compatibility_date": "2026-05-01",
+
+  "assets": {
+    "directory": "./dist",
+
+    // The app has no client-side router — navigation is React state — but a
+    // deep link, a refresh on a shared URL, or a stray path must still return
+    // the app rather than a 404 page. "single-page-application" serves
+    // index.html (with a 200) for any path that does not match a built asset.
+    "not_found_handling": "single-page-application"
+  },
+
+  // Surfaces request logs and errors in the Cloudflare dashboard. Free to
+  // enable; without it a failing deploy is diagnosed blind.
+  "observability": {
+    "enabled": true
+  }
+}
