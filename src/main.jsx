@@ -13785,6 +13785,33 @@ class AppErrorBoundary extends React.Component {
   }
 }
 
+/* Cloudflare Web Analytics.
+
+Loaded from JS rather than hardcoded into index.html so the beacon only
+attaches when a token is actually configured. Without that guard, local
+development and any fork of this repository would report into the owner's
+dashboard and pollute the numbers the site is being measured by.
+
+The token is supplied at build time as VITE_CF_BEACON_TOKEN (see
+.github/workflows/deploy.yml). It is a public identifier — it ships inside the
+page either way — so it belongs in a repository variable rather than a secret.
+
+Cloudflare's beacon sets no cookies and stores no cross-site identifiers, so
+this needs no consent banner. It reports page views, device, browser and
+country; it does not report session duration or city, which are limits of the
+free tier rather than of this wiring. */
+function mountAnalytics() {
+  const token = import.meta.env.VITE_CF_BEACON_TOKEN;
+  if (!token) return;
+  const beacon = document.createElement("script");
+  beacon.defer = true;
+  beacon.src = "https://static.cloudflareinsights.com/beacon.min.js";
+  beacon.setAttribute("data-cf-beacon", JSON.stringify({ token: token }));
+  document.head.appendChild(beacon);
+}
+
+mountAnalytics();
+
 createRoot(document.getElementById("root")).render(
   <AppErrorBoundary>
     <VibePassRoot />
