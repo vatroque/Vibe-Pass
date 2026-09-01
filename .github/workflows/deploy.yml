@@ -46,6 +46,13 @@ jobs:
 
       - name: Build
         run: npm run build
+        env:
+          # Cloudflare Web Analytics beacon. Set as a repository *variable*
+          # (Settings > Secrets and variables > Actions > Variables) named
+          # CF_BEACON_TOKEN. It is a public identifier that ships in the page,
+          # so it is not a secret. Unset means no beacon is attached and the
+          # site simply reports nothing.
+          VITE_CF_BEACON_TOKEN: ${{ vars.CF_BEACON_TOKEN }}
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
